@@ -1,0 +1,66 @@
+# Python bytecode and environments
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+.python-version
+
+# Packaging and test artifacts
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs, caches, and temporary files
+*.log
+.cache/
+tmp/
+temp/
+
+# Generated experiment artifacts
+artifacts/
+checkpoints/
+runs/
+wandb/
+tensorboard/
+*.ckpt
+*.pt
+*.pth
+
+# Generated datasets (retain schemas and small fixtures in Git)
+data/raw/
+data/processed/
+*.h5
+*.hdf5
+*.npz
+*.npy
+*.parquet
+
+# MuJoCo recordings and rendered media
+*.mp4
+*.avi
+*.mov
+*.gif
