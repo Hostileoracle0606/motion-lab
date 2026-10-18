@@ -10,6 +10,25 @@ This directory currently contains the experiment specification only. There is no
 
 How does adding derivative feedback change the motion of a simple MuJoCo-controlled joint when the environment, target, initial state, action limits, and evaluation protocol are held constant?
 
+## Environment setup
+
+The experiment uses Python 3.12 and dependencies pinned in the repository-level
+`pyproject.toml` and `uv.lock` files. From the repository root, create or update
+the local environment with:
+
+```bash
+uv sync
+```
+
+Activate it when running commands directly:
+
+```bash
+source .venv/bin/activate
+```
+
+Alternatively, prefix a command with `uv run` to execute it inside the managed
+environment without activating it first.
+
 The first experiment is deliberately narrow. Its purpose is to establish the repository's basic loop:
 
 ```text
