@@ -2,9 +2,9 @@
 
 **Learning how machines move, predict, and act.**
 
-Motion Lab is a documentation-first robotics learning project. It traces a practical path from feedback control in simulation to systems that learn dynamics, predict future states, and plan across multiple time scales.
+Motion Lab is a robotics research lab studying how machines progress from controlled motion to predictive and adaptive behavior. Its work connects feedback control, dynamics learning, world models, and planning across multiple time scales.
 
-The project is intentionally incremental:
+The research program is intentionally incremental. Each stage establishes the experimental foundation for the next:
 
 ```text
 Feedback control
@@ -16,13 +16,13 @@ Feedback control
     -> temporal and hierarchical planning
 ```
 
-## Status
+## Research status
 
-> **In progress — documentation foundation only.**
+> **Research agenda established — experimental work in progress.**
 
-The repository currently defines the research direction, engineering standards, and the specification for the first experiment. Simulator source code, recorded trajectories, trained models, and verified benchmark results have **not** been published yet. Any future result must be reproducible from committed code and artifacts before it is reported as complete.
+The repository currently defines the lab's research direction, engineering standards, and first experimental protocol. Simulator source code, recorded trajectories, trained models, and verified benchmark results have **not** been published yet. Results will be reported only when they can be reproduced from committed code and artifacts.
 
-## Why this project exists
+## Research thesis
 
 A robot does not become intelligent merely by producing motion. It must connect three capabilities:
 
@@ -30,9 +30,9 @@ A robot does not become intelligent merely by producing motion. It must connect 
 2. **Predict:** estimate how the world will change after an action.
 3. **Act:** choose actions whose predicted outcomes serve a goal.
 
-Motion Lab develops those capabilities in that order. Each experiment should produce a concrete artifact needed by the next one: a controller produces trajectories, trajectories support a dynamics model, a dynamics model supports planning, and increasingly abstract predictions support longer-horizon decisions.
+Motion Lab investigates those capabilities in that order. Each experiment produces evidence and infrastructure needed by the next: controllers generate trajectories, trajectories support dynamics models, dynamics models enable planning, and increasingly abstract predictions support longer-horizon decisions.
 
-## Learning path
+## Research program
 
 | Stage | Central question | Intended artifact | Status |
 | --- | --- | --- | --- |
@@ -44,7 +44,7 @@ Motion Lab develops those capabilities in that order. Each experiment should pro
 | 6. Visual and latent prediction | Can useful futures be predicted without reconstructing every pixel? | JEPA-inspired representation and predictor experiments | Planned |
 | 7. Temporal hierarchy | Can planning operate at several time scales? | Short-horizon skills and higher-level goal planner | Planned |
 
-See the [project roadmap](docs/roadmap.md) for stage gates and dependencies.
+See the [research roadmap](docs/roadmap.md) for stage gates and dependencies.
 
 ## Experiment 01: P vs PD feedback control
 
@@ -96,7 +96,7 @@ As implementation is added, experiments should remain self-contained and link to
 - [References](docs/references.md) — primary papers, textbooks, and official technical documentation.
 - [Experiment 01](experiments/01-feedback-control/README.md) — planned setup and P-versus-PD evaluation protocol.
 
-## Project principles
+## Research principles
 
 - **Establish a baseline before adding learning.** A learned model should be compared with a simple, understood alternative.
 - **Change one important variable at a time.** Comparisons are meaningful only when the environment and evaluation conditions are controlled.
