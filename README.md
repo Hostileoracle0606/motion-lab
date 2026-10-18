@@ -2,9 +2,9 @@
 
 **Learning how machines move, predict, and act.**
 
-Motion Lab is a robotics research lab studying how machines progress from controlled motion to predictive and adaptive behavior. Its work connects feedback control, dynamics learning, world models, and planning across multiple time scales.
+Motion Lab is an independent robotics research and demonstration effort built around a sequence of reproducible experiments. It begins with feedback control in MuJoCo, then extends the same experimental foundation toward trajectory datasets, learned dynamics, model predictive control, and latent world models.
 
-The research program is intentionally incremental. Each stage establishes the experimental foundation for the next:
+Each stage produces a concrete demonstration and the data, evaluation methods, or infrastructure required by the next. The sequence is intentionally incremental:
 
 ```text
 Feedback control
@@ -20,7 +20,7 @@ Feedback control
 
 > **Research agenda established — experimental work in progress.**
 
-The repository currently defines the lab's research direction, engineering standards, and first experimental protocol. Simulator source code, recorded trajectories, trained models, and verified benchmark results have **not** been published yet. Results will be reported only when they can be reproduced from committed code and artifacts.
+The repository currently defines the research direction, engineering standards, and first experimental protocol. Simulator source code, recorded trajectories, trained models, and verified benchmark results have **not** been published yet. Results will be reported only when they can be reproduced from committed code and artifacts.
 
 ## Research thesis
 
