@@ -2,12 +2,13 @@
 
 ## Status
 
-> **In progress — environment and initial MuJoCo model implemented; controllers and results not yet published.**
+> **In progress — environment, MuJoCo model, and controller equations implemented; simulation runs and results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
-and initial one-link MuJoCo model. Controller source, trajectory data, and
-verified benchmark results have not been published yet. Values described as
-planned below remain starting points rather than measurements.
+initial one-link MuJoCo model, and independently tested P and PD controller
+equations. Integrated simulation runs, trajectory data, and verified benchmark
+results have not been published yet. Values described as planned below remain
+starting points rather than measurements.
 
 ## Research question
 
@@ -131,6 +132,20 @@ u_t^{applied}=\operatorname{clip}(u_t,u_{min},u_{max})
 ```
 
 The recorded trajectory should contain both the unclipped controller output and applied action so saturation is visible.
+
+### Controller implementation
+
+The pure controller functions live in `src/feedback_control/controllers.py`.
+They are deliberately independent from MuJoCo: each function receives ordinary
+numeric state and target values and returns both the requested torque and the
+bounded torque sent to the actuator. This separation allows the equations and
+clipping behavior to be tested without running the simulator.
+
+The `ControllerOutput` record contains:
+
+- `raw_torque`: the control law's requested torque before actuator limits;
+- `applied_torque`: the torque after symmetric clipping;
+- `saturated`: whether clipping changed the requested torque.
 
 ## Planned setup
 
