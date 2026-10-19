@@ -2,9 +2,12 @@
 
 ## Status
 
-> **In progress — protocol documented; implementation and results not yet published.**
+> **In progress — environment and initial MuJoCo model implemented; controllers and results not yet published.**
 
-This directory currently contains the experiment specification only. There is no committed MuJoCo environment, controller source, trajectory dataset, or verified benchmark result yet. The planned values below are starting points, not measurements.
+This directory contains the experiment specification, pinned Python environment,
+and initial one-link MuJoCo model. Controller source, trajectory data, and
+verified benchmark results have not been published yet. Values described as
+planned below remain starting points rather than measurements.
 
 ## Research question
 
@@ -63,6 +66,27 @@ The model specification must declare:
 - controller update interval.
 
 Starting simple makes controller behavior interpretable before moving to coupled joints, contacts, or image observations.
+
+### Initial one-link model
+
+The initial plant is defined in `models/one_link.xml`. It uses the following
+declared values:
+
+| Property | Value |
+| --- | --- |
+| Generalized position | Hinge angle in radians; positive rotation moves the arm toward positive x |
+| Generalized velocity | Hinge angular velocity in radians per second |
+| Joint axis and range | y axis, from -pi/2 to +pi/2 radians |
+| Link | 0.8 m capsule with 1.0 kg mass |
+| Joint dynamics | damping 0.05, friction loss 0, armature 0.01 |
+| Actuator | Direct motor with gear 1 and control range [-3, 3] |
+| Gravity | Disabled (`0 0 0`) for the initial damping comparison |
+| Integration | RK4 with a 0.002 s simulation step |
+| Solver | Newton |
+| Demonstration poses | -pi/3 rad start keyframe and +pi/3 rad visible target |
+
+The controller interval is not defined by the model and will be declared by the
+experiment configuration when the control loop is implemented.
 
 ## Controllers
 
