@@ -2,13 +2,14 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, and deterministic closed-loop runner implemented; recorded artifacts and evaluated results not yet published.**
+> **In progress — environment, model, controllers, closed-loop runner, and declared gain sweep implemented; recorded artifacts and evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
-equations, and a deterministic closed-loop episode runner. Persisted trajectory
-data and verified benchmark results have not been published yet. Values
-described as planned below remain starting points rather than measurements.
+equations, a deterministic closed-loop episode runner, and a theory-guided gain
+sweep. Persisted trajectory data and verified benchmark results have not been
+published yet. Values described as planned below remain starting points rather
+than measurements.
 
 ## Research question
 
@@ -38,6 +39,12 @@ Run one deterministic episode with either controller:
 ```bash
 uv run python experiments/01-feedback-control/scripts/run_episode.py --controller p
 uv run python experiments/01-feedback-control/scripts/run_episode.py --controller pd
+```
+
+Inspect the declared P and PD gain sweep:
+
+```bash
+uv run python experiments/01-feedback-control/scripts/sweep_gains.py
 ```
 
 The first experiment is deliberately narrow. Its purpose is to establish the repository's basic loop:
@@ -153,6 +160,27 @@ The `ControllerOutput` record contains:
 - `raw_torque`: the control law's requested torque before actuator limits;
 - `applied_torque`: the torque after symmetric clipping;
 - `saturated`: whether clipping changed the requested torque.
+
+### Initial gain-selection procedure
+
+The headline P and PD runs use the same proportional gain, `Kp = 2.0`, so the
+presence of derivative feedback is the central changed variable. For the local
+linear, unsaturated one-joint model, the approximate derivative gain for
+critical damping is:
+
+```math
+K_d^{crit} = 2\sqrt{I K_p} - b
+```
+
+where `I` is the effective joint inertia reported by MuJoCo and `b` is the
+model's passive joint damping. At the declared starting state this gives an
+estimate near `1.3136`; the nearest value in the versioned sweep is `Kd = 1.3`.
+
+This calculation assumes continuous time, locally constant inertia, zero
+gravity, and no actuator saturation. The sweep therefore also reports final
+error, final speed, overshoot, peak speed, saturated steps, and target crossings
+for inspection. These are tuning diagnostics, not yet the experiment's formal
+multi-scenario metrics.
 
 ## Planned setup
 
