@@ -2,13 +2,13 @@
 
 ## Status
 
-> **In progress — environment, MuJoCo model, and controller equations implemented; simulation runs and results not yet published.**
+> **In progress — environment, model, controllers, and deterministic closed-loop runner implemented; recorded artifacts and evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
-initial one-link MuJoCo model, and independently tested P and PD controller
-equations. Integrated simulation runs, trajectory data, and verified benchmark
-results have not been published yet. Values described as planned below remain
-starting points rather than measurements.
+initial one-link MuJoCo model, independently tested P and PD controller
+equations, and a deterministic closed-loop episode runner. Persisted trajectory
+data and verified benchmark results have not been published yet. Values
+described as planned below remain starting points rather than measurements.
 
 ## Research question
 
@@ -32,6 +32,13 @@ source .venv/bin/activate
 
 Alternatively, prefix a command with `uv run` to execute it inside the managed
 environment without activating it first.
+
+Run one deterministic episode with either controller:
+
+```bash
+uv run python experiments/01-feedback-control/scripts/run_episode.py --controller p
+uv run python experiments/01-feedback-control/scripts/run_episode.py --controller pd
+```
 
 The first experiment is deliberately narrow. Its purpose is to establish the repository's basic loop:
 
@@ -196,6 +203,14 @@ For each controller configuration and scenario:
 9. Compute episode metrics from the saved record.
 
 Metrics should be computed after collection from the recorded trajectory, rather than only as mutable state inside the control loop.
+
+### Implemented closed-loop runner
+
+The initial runner uses a 0.002 s MuJoCo simulation step and a 0.010 s control
+interval, so each selected action is held for five physics steps. A four-second
+episode therefore contains 400 controller observations and 2,000 physics steps.
+The control loop records samples in memory; durable serialization is intentionally
+left to the trajectory-recording task.
 
 ## Transition record
 

@@ -1,0 +1,19 @@
+[model]
+path = "../models/one_link.xml"
+keyframe = "start"
+simulation_timestep_s = 0.002
+
+[episode]
+duration_s = 4.0
+control_interval_s = 0.010
+start_position_rad = -1.047198
+target_position_rad = 1.047198
+target_velocity_rad_s = 0.0
+torque_limit_nm = 3.0
+
+[controllers.p]
+kp = 2.0
+
+[controllers.pd]
+kp = 2.0
+kd = 1.3
