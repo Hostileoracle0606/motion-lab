@@ -1,19 +1,32 @@
 # Motion Lab
 
-Reproducible robotics control and dynamics experiments in MuJoCo.
+Robotics software for reproducible control, prediction, and planning
+experiments in simulation.
 
-Motion Lab currently implements a deterministic single-joint control system
-with P and PD controllers, independent physics and control rates, actuator
-limits, trajectory telemetry, automated tests, and synchronized visual replay.
-The same experiment structure is intended to support trajectory collection,
-dynamics models, and model-based control without replacing the foundations at
-each stage.
+Motion Lab is organized around independently executable experiments. Each
+experiment owns its system definition, configuration, implementation, tests,
+evaluation protocol, and documented results.
+
+The repository progresses through a shared technical sequence:
+
+```text
+feedback control
+    -> state-transition data
+    -> forward dynamics
+    -> learned dynamics
+    -> model-based control
+    -> predictive representations
+    -> hierarchical planning
+```
+
+## Current demonstration
 
 ![Synchronized side-by-side comparison of P and PD feedback controllers](assets/p_vs_pd_side_by_side.gif)
 
-The orange arm uses proportional control. The blue arm adds velocity feedback.
-Both runs use the same initial state, target, torque limit, model, and clock.
-The GIF shows one deterministic scenario, not an aggregate evaluation.
+The current demonstration comes from
+[Experiment 01 — Feedback control](experiments/01-feedback-control/README.md).
+Its configuration, implementation, execution commands, and evaluation scope
+are documented within that experiment.
 
 ## Quickstart
 
@@ -27,193 +40,92 @@ uv sync
 uv run pytest -q
 ```
 
-Run either controller without opening a viewer:
-
-```bash
-uv run python experiments/01-feedback-control/scripts/run_episode.py --controller p
-uv run python experiments/01-feedback-control/scripts/run_episode.py --controller pd
-```
-
-On macOS, open the synchronized P-versus-PD comparison:
-
-```bash
-uv run mjpython experiments/01-feedback-control/scripts/run_visual_demo.py
-```
-
-Export the same comparison directly to a 1280 x 720 MP4:
-
-```bash
-uv run python experiments/01-feedback-control/scripts/record_visual_demo.py
-```
-
-The exporter writes
-`experiments/01-feedback-control/results/p_vs_pd_side_by_side.mp4`.
-
-## Current capabilities
-
-| Area | Implementation |
-| --- | --- |
-| Plant | One actuated revolute joint modeled in MuJoCo XML |
-| Control | Independently testable P and PD control laws with torque saturation |
-| Execution | Deterministic observe-control-step episodes driven by TOML configuration |
-| Timing | 500 Hz physics integration and 100 Hz control in the default configuration |
-| Telemetry | Position, velocity, target, raw torque, applied torque, and saturation per control decision |
-| Tuning | Declared P/PD gain sweep with a critical-damping estimate |
-| Visualization | Single-controller replay and synchronized side-by-side comparison |
-| Recording | Headless MP4 export with experiment overlays |
-| Verification | Unit and integration coverage for configuration, controllers, model contracts, simulation, playback, recording, and tuning |
-
-## System architecture
-
-The controller is deliberately independent of MuJoCo. It receives measured
-state and a target, then returns a bounded torque command. The simulation owns
-the model state and advances physics. Playback consumes completed episode
-records and never recomputes the control action.
-
-```text
-TOML configuration
-       |
-       v
-MuJoCo state ---> controller ---> bounded torque
-       ^                              |
-       |                              v
-       +------ physics substeps <-----+
-                       |
-                       v
-              trajectory samples
-                 /           \
-                v             v
-          headless output   visual replay / MP4
-```
-
-The default experiment advances physics every 2 ms and makes a new control
-decision every 10 ms. The torque is therefore held constant for five physics
-steps before the controller observes the next state. Keeping these clocks
-separate allows the simulator to resolve motion more frequently than the
-software updates its command.
-
-## Experiment 01: Feedback control
-
-The first system compares proportional and proportional-derivative feedback on
-the same one-link plant.
-
-For target position \(q^*\), measured position \(q_t\), and measured velocity
-\(\dot q_t\):
-
-```math
-u_t^{P} = K_p(q^* - q_t)
-```
-
-```math
-u_t^{PD} = K_p(q^* - q_t) - K_d\dot q_t
-```
-
-The proportional term commands torque from position error. The derivative term
-opposes motion relative to a stationary target. Both requested torques are
-clamped to the same actuator limit before they reach the MuJoCo model.
-
-The experiment specification, model parameters, tuning assumptions, and
-evaluation protocol are documented in
-[Experiment 01](experiments/01-feedback-control/README.md).
-
-### Configuration
-
-The default scenario is defined in
-[`configs/demo.toml`](experiments/01-feedback-control/configs/demo.toml). It
-contains the initial and target positions, episode duration, physics and
-control intervals, torque limit, and controller gains.
-
-Changing one of these values produces a new declared scenario without changing
-the controller or simulation source. Useful comparisons include:
-
-- increasing or decreasing `controllers.p.kp`;
-- varying `controllers.pd.kd` while keeping proportional gain fixed;
-- reducing `episode.torque_limit_nm` to expose saturation;
-- changing `episode.control_interval_s` while preserving an integer number of
-  physics steps per control decision.
-
-Inspect the declared gain sweep with:
-
-```bash
-uv run python experiments/01-feedback-control/scripts/sweep_gains.py
-```
+Each experiment documents its own execution, configuration, and evaluation
+commands.
 
 ## Repository structure
 
 ```text
 motion-lab/
-├── assets/                         README media
+├── assets/                         repository-level media
+├── CONTRIBUTING.md                experiment and contribution contract
 ├── docs/
 │   ├── engineering-standards.md    evidence and evaluation requirements
 │   ├── references.md               primary technical references
 │   ├── research-foundations.md     control, dynamics, and planning context
 │   └── roadmap.md                  staged system development
 ├── experiments/
-│   └── 01-feedback-control/
-│       ├── configs/                versioned scenarios and gain sweeps
-│       ├── models/                 MuJoCo plants and comparison scene
-│       ├── scripts/                executable experiment entry points
-│       ├── src/feedback_control/   control, simulation, replay, and recording
-│       └── tests/                  unit and integration checks
+│   └── <experiment>/
+│       ├── README.md               scope, commands, protocol, and status
+│       ├── configs/                versioned experiment definitions
+│       ├── models/                 simulation and system models
+│       ├── scripts/                executable entry points
+│       ├── src/                    experiment implementation
+│       ├── tests/                  unit and integration checks
+│       └── results/                reproducible result artifacts
 ├── pyproject.toml                  package and test configuration
 └── uv.lock                         locked dependency graph
 ```
 
-The implementation is split by responsibility:
-
-- `controllers.py` contains pure control laws and actuator limiting.
-- `simulation.py` owns MuJoCo execution and trajectory sampling.
-- `config.py` loads and validates the experiment contract.
-- `playback.py` replays completed trajectories in the native viewer.
-- `recording.py` renders the comparison to video.
-- `tuning.py` defines gain-sweep diagnostics and damping estimates.
+An experiment may omit directories it does not require, but its public
+interfaces, assumptions, commands, and evidence must remain documented.
 
 ## Experiments
 
-| Stage | System | Technical focus | Status |
-| --- | --- | --- | --- |
-| 01. Feedback control | One-link MuJoCo plant | P/PD control, saturation, multirate simulation, replay | Implemented; formal scenario evaluation in progress |
-| 02. State-transition data | Versioned control trajectories | Schema, validation, replay, and dataset splits | Planned |
-| 03. Forward dynamics | Analytical or simulator-backed predictor | One-step prediction and open-loop rollout error | Planned |
-| 04. Learned dynamics | Model trained on recorded transitions | Held-out prediction and multi-step drift | Planned |
-| 05. Model predictive control | Receding-horizon controller | Planning under action and compute constraints | Planned |
-| 06. Visual and latent prediction | Observation-space prediction | Task-relevant representations for control | Planned |
-| 07. Temporal hierarchy | Multi-rate goals and skills | Planning across control horizons | Planned |
+| Experiment | Status |
+| --- | --- |
+| [01 — Feedback control](experiments/01-feedback-control/README.md) | Implementation available; formal evaluation in progress |
+| 02 — State-transition data | Planned |
+| 03 — Forward dynamics | Planned |
+| 04 — Learned dynamics | Planned |
+| 05 — Model predictive control | Planned |
+| 06 — Visual and latent prediction | Planned |
+| 07 — Temporal hierarchy | Planned |
 
 See the [roadmap](docs/roadmap.md) for dependencies and completion gates.
 
-## Engineering principles
+## Project direction
 
-- **Keep control laws simulator-independent.** Controller equations should be
-  testable without launching MuJoCo.
-- **Make timing explicit.** Physics integration, control decisions, sampling,
-  and playback are separate concerns.
-- **Put experiment-defining values in versioned configuration.** Results should
-  identify the configuration that produced them.
-- **Compare systems under shared constraints.** Initial state, target, model,
-  actuator limits, duration, and metric definitions must remain controlled.
-- **Preserve raw observations before interpretation.** Recorded state and action
-  data should support later metrics, replay, and dynamics modeling.
-- **Separate implementation from evidence.** A working demonstration is not a
-  multi-scenario result, and planned work is not implemented work.
+Motion Lab begins with explicit control and simulation interfaces, then extends
+those interfaces toward data collection, dynamics prediction, and planning.
 
-## Scope and limitations
+Later systems should reuse established data and evaluation contracts rather
+than introducing disconnected demonstrations. New complexity should be added
+only when the preceding system provides a reproducible baseline.
 
-- The current system is simulation-only and has not been validated on physical
-  hardware.
-- The included GIF represents one deterministic scenario.
-- Persisted trajectory datasets and formal multi-scenario P/PD results have not
-  been published.
-- The current plant has one degree of freedom, no contacts, and gravity disabled
-  to isolate the initial damping comparison.
-- Timing output from an ordinary run is not a real-time performance benchmark.
+## Selected research foundations
+
+The roadmap is informed by established work in simulation, learned dynamics,
+model-based control, predictive representations, and temporal abstraction.
+Inclusion here indicates technical relevance, not reproduction of a paper's
+results.
+
+| Area | Paper | Connection |
+| --- | --- | --- |
+| Robotics simulation | [MuJoCo: A Physics Engine for Model-Based Control](https://ieeexplore.ieee.org/document/6386109/) | Simulation and dynamics infrastructure |
+| Integrated learning and planning | [Dyna: An Integrated Architecture for Learning, Planning, and Reacting](https://doi.org/10.1145/122344.122377) | Connecting experience, learned models, planning, and action |
+| Uncertainty-aware dynamics | [Deep Reinforcement Learning in a Handful of Trials Using Probabilistic Dynamics Models](https://papers.nips.cc/paper_files/paper/2018/hash/3de568f8597b94bda53149c7d7f5958c-Abstract.html) | Probabilistic ensembles and trajectory-sampling control |
+| Latent planning | [Learning Latent Dynamics for Planning from Pixels](https://proceedings.mlr.press/v97/hafner19a.html) | Learning compact dynamics and planning in latent space |
+| World-model control | [TD-MPC2: Scalable, Robust World Models for Continuous Control](https://proceedings.iclr.cc/paper_files/paper/2024/hash/cf73d57b6dcda32b293df7c2d5341f49-Abstract-Conference.html) | Short-horizon latent planning with learned task representations |
+| Predictive video models | [V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning](https://arxiv.org/abs/2506.09985) | Action-conditioned visual prediction and robot planning |
+| Temporal abstraction | [Between MDPs and Semi-MDPs: A Framework for Temporal Abstraction in Reinforcement Learning](https://www.sciencedirect.com/science/article/pii/S0004370299000521) | Temporally extended actions and hierarchical decision-making |
+
+The complete bibliography and suggested reading order are maintained in
+[`docs/references.md`](docs/references.md).
+
+## Scope
+
+- MuJoCo is the current simulation backend.
+- Current evidence comes from simulation, not physical hardware.
+- Planned experiments are not treated as implemented capabilities.
+- Demonstrations are not treated as aggregate evaluation results.
+- Performance claims require committed measurement code and reproducible
+  artifacts.
 
 ## Documentation
 
-- [Experiment 01](experiments/01-feedback-control/README.md) — setup, model,
-  controller definitions, protocol, and commands.
 - [Engineering standards](docs/engineering-standards.md) — evidence levels,
-  testing, data contracts, evaluation, and reporting requirements.
+  configuration, testing, evaluation, and reporting.
 - [Roadmap](docs/roadmap.md) — experiment dependencies and completion gates.
 - [Technical foundations](docs/research-foundations.md) — control, dynamics,
   planning, representation learning, and temporal abstraction.
@@ -222,12 +134,8 @@ See the [roadmap](docs/roadmap.md) for dependencies and completion gates.
 
 ## Contributing
 
-Changes should preserve explicit interfaces between control, simulation,
-recording, and evaluation. New experiments should include a versioned
-configuration, executable entry point, relevant automated checks, and enough
-information to reproduce any reported result. See the
-[engineering standards](docs/engineering-standards.md) before publishing
-measurements or comparisons.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the experiment contract, engineering
+principles, development workflow, and pre-submission checks.
 
 ## License
 
