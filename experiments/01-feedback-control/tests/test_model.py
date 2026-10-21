@@ -5,6 +5,9 @@ import numpy as np
 
 
 MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "one_link.xml"
+COMPARISON_MODEL_PATH = (
+    Path(__file__).resolve().parents[1] / "models" / "one_link_comparison.xml"
+)
 
 
 def test_model_has_one_joint_and_one_actuator() -> None:
@@ -28,3 +31,23 @@ def test_positive_torque_moves_joint_in_positive_direction() -> None:
         mujoco.mj_step(model, data)
 
     assert float(data.qpos[0]) > initial_angle
+
+
+def test_comparison_model_has_two_independent_display_arms() -> None:
+    model = mujoco.MjModel.from_xml_path(str(COMPARISON_MODEL_PATH))
+
+    assert (model.nq, model.nv, model.nu) == (2, 2, 2)
+    assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "p_hinge") >= 0
+    assert mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "pd_hinge") >= 0
+    assert (
+        mujoco.mj_name2id(
+            model,
+            mujoco.mjtObj.mjOBJ_CAMERA,
+            "comparison_camera",
+        )
+        >= 0
+    )
+    np.testing.assert_allclose(
+        model.actuator_ctrlrange,
+        [[-3.0, 3.0], [-3.0, 3.0]],
+    )

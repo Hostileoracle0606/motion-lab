@@ -18,9 +18,13 @@ Feedback control
 
 ## Research status
 
-> **Research agenda established — experimental work in progress.**
+> **Experiment 01 implemented through deterministic P/PD control and visual replay — formal multi-scenario evaluation remains in progress.**
 
-The repository currently defines the research direction, engineering standards, and first experimental protocol. Simulator source code, recorded trajectories, trained models, and verified benchmark results have **not** been published yet. Results will be reported only when they can be reproduced from committed code and artifacts.
+The repository contains the first MuJoCo plant, tested P and PD controllers, a
+deterministic closed-loop runner, a declared gain sweep, and a real-time visual
+replay. Durable trajectory datasets, trained models, and formal multi-scenario
+results have **not** been published yet. Results will be reported only when they
+can be reproduced from committed code and artifacts.
 
 ## Research thesis
 
@@ -67,7 +71,26 @@ u_t^{P} = K_p e_t
 u_t^{PD} = K_p e_t - K_d \dot q_t
 ```
 
-The planned MuJoCo experiment will compare the controllers under the same model, initial conditions, targets, simulation step, actuator limits, and evaluation procedure. Planned metrics include rise time, settling time, overshoot, steady-state error, control effort, and failure rate across a deterministic scenario set.
+The current MuJoCo demonstration compares the controllers under the same model,
+initial condition, target, simulation step, actuator limits, and episode length.
+The broader evaluation remains planned and will include rise time, settling
+time, overshoot, steady-state error, control effort, and failure rate across a
+deterministic scenario set.
+
+### Visual comparison
+
+![Synchronized side-by-side comparison of P and PD feedback controllers](assets/p_vs_pd_side_by_side.gif)
+
+The orange P controller and blue PD controller replay synchronized trajectories
+with the same initial state, target, torque limit, and simulation clock. This GIF
+shows one deterministic demonstration scenario; it is not an aggregate
+evaluation result.
+
+On macOS, run the screen-recordable comparison with:
+
+```bash
+uv run mjpython experiments/01-feedback-control/scripts/run_visual_demo.py
+```
 
 The complete experiment specification is in [experiments/01-feedback-control/README.md](experiments/01-feedback-control/README.md).
 

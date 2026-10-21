@@ -2,7 +2,7 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, closed-loop runner, and declared gain sweep implemented; recorded artifacts and evaluated results not yet published.**
+> **In progress — environment, model, controllers, closed-loop runner, declared gain sweep, and real-time visual replay implemented; recorded datasets and formal evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
@@ -46,6 +46,45 @@ Inspect the declared P and PD gain sweep:
 ```bash
 uv run python experiments/01-feedback-control/scripts/sweep_gains.py
 ```
+
+Run the screen-recordable visual comparison on macOS:
+
+```bash
+uv run mjpython experiments/01-feedback-control/scripts/run_visual_demo.py
+```
+
+Export the same synchronized comparison directly to a 1280 x 720 MP4:
+
+```bash
+uv run python experiments/01-feedback-control/scripts/record_visual_demo.py
+```
+
+The generated video is written to
+`experiments/01-feedback-control/results/p_vs_pd_side_by_side.mp4`. Direct
+export records only the MuJoCo scene and experiment overlays, never the desktop.
+
+The command computes both tested episodes before opening a clean MuJoCo window,
+then replays P in orange and PD in blue side by side on the same clock. The red
+guides mark their shared target. Viewer overlays identify each controller and
+show time, position, error, velocity, applied torque, and actuator saturation.
+By default, the shared starting frame is held for two seconds and the final
+comparison for 1.5 seconds, which provides time to begin and end a screen
+recording.
+
+Useful presentation options include:
+
+```bash
+# Rehearse the comparison twice.
+uv run mjpython experiments/01-feedback-control/scripts/run_visual_demo.py --repeat 2
+
+# Inspect only one controller.
+uv run mjpython experiments/01-feedback-control/scripts/run_visual_demo.py --controller pd
+```
+
+The viewer is a presentation layer, not a second simulation path. It copies
+recorded states into an independent MuJoCo model and never advances physics or
+recomputes controller actions. This keeps the displayed motion tied to the same
+`EpisodeResult` records exercised by the headless tests.
 
 The first experiment is deliberately narrow. Its purpose is to establish the repository's basic loop:
 

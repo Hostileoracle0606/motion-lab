@@ -64,3 +64,6 @@ data/processed/
 *.avi
 *.mov
 *.gif
+
+# Versioned showcase media
+!assets/p_vs_pd_side_by_side.gif

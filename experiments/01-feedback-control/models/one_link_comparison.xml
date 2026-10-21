@@ -1,0 +1,197 @@
+<mujoco model="one_link_feedback_control_comparison">
+  <compiler angle="radian" autolimits="true"/>
+
+  <!--
+    Presentation-only model for replaying two recorded trajectories together.
+    No physics is advanced in this model during visual playback.
+  -->
+  <option
+    timestep="0.002"
+    gravity="0 0 0"
+    integrator="RK4"
+    solver="Newton"
+  />
+
+  <statistic center="0 0 0.35" extent="1.9"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.65 0.65 0.65" specular="0.2 0.2 0.2"/>
+    <rgba haze="0.08 0.10 0.14 1"/>
+  </visual>
+
+  <asset>
+    <texture
+      name="floor_grid"
+      type="2d"
+      builtin="checker"
+      rgb1="0.10 0.12 0.16"
+      rgb2="0.16 0.19 0.24"
+      width="512"
+      height="512"
+    />
+    <material
+      name="floor_material"
+      texture="floor_grid"
+      texrepeat="6 4"
+      reflectance="0.15"
+    />
+    <material name="base_material" rgba="0.20 0.23 0.30 1"/>
+    <material name="p_arm_material" rgba="0.98 0.53 0.12 1"/>
+    <material name="pd_arm_material" rgba="0.10 0.62 0.95 1"/>
+    <material name="joint_material" rgba="0.82 0.88 0.96 1"/>
+  </asset>
+
+  <worldbody>
+    <light name="key_light" pos="-1.5 -2.5 3.5" dir="0.3 0.5 -1"/>
+    <camera
+      name="comparison_camera"
+      pos="0 -4.8 0.62"
+      xyaxes="1 0 0 0 0 1"
+      fovy="34"
+    />
+
+    <geom
+      name="floor"
+      type="plane"
+      pos="0 0 -0.18"
+      size="3 2 0.1"
+      material="floor_material"
+      contype="0"
+      conaffinity="0"
+    />
+
+    <!-- Identical red target guides, translated with each display arm. -->
+    <geom
+      name="p_target_guide"
+      type="capsule"
+      fromto="-0.85 0 0 -0.157180 0 0.400000"
+      size="0.012"
+      rgba="1.0 0.20 0.16 0.30"
+      contype="0"
+      conaffinity="0"
+    />
+    <site
+      name="p_target"
+      type="sphere"
+      pos="-0.157180 0 0.400000"
+      size="0.065"
+      rgba="1.0 0.20 0.16 0.90"
+    />
+    <geom
+      name="pd_target_guide"
+      type="capsule"
+      fromto="0.85 0 0 1.542820 0 0.400000"
+      size="0.012"
+      rgba="1.0 0.20 0.16 0.30"
+      contype="0"
+      conaffinity="0"
+    />
+    <site
+      name="pd_target"
+      type="sphere"
+      pos="1.542820 0 0.400000"
+      size="0.065"
+      rgba="1.0 0.20 0.16 0.90"
+    />
+
+    <body name="p_base" pos="-0.85 0 -0.09">
+      <geom
+        name="p_base_geom"
+        type="cylinder"
+        size="0.16 0.09"
+        material="base_material"
+        contype="0"
+        conaffinity="0"
+      />
+      <body name="p_arm" pos="0 0 0.09">
+        <joint
+          name="p_hinge"
+          type="hinge"
+          axis="0 1 0"
+          range="-1.570796 1.570796"
+          damping="0.05"
+          frictionloss="0"
+          armature="0.01"
+        />
+        <geom
+          name="p_arm_link"
+          type="capsule"
+          fromto="0 0 0 0 0 0.8"
+          size="0.045"
+          mass="1.0"
+          material="p_arm_material"
+        />
+        <geom
+          name="p_joint_hub"
+          type="cylinder"
+          quat="0.707107 0.707107 0 0"
+          size="0.085 0.075"
+          mass="0.05"
+          material="joint_material"
+          contype="0"
+          conaffinity="0"
+        />
+        <site
+          name="p_end_effector"
+          type="sphere"
+          pos="0 0 0.8"
+          size="0.06"
+          rgba="1.0 0.88 0.70 1"
+        />
+      </body>
+    </body>
+
+    <body name="pd_base" pos="0.85 0 -0.09">
+      <geom
+        name="pd_base_geom"
+        type="cylinder"
+        size="0.16 0.09"
+        material="base_material"
+        contype="0"
+        conaffinity="0"
+      />
+      <body name="pd_arm" pos="0 0 0.09">
+        <joint
+          name="pd_hinge"
+          type="hinge"
+          axis="0 1 0"
+          range="-1.570796 1.570796"
+          damping="0.05"
+          frictionloss="0"
+          armature="0.01"
+        />
+        <geom
+          name="pd_arm_link"
+          type="capsule"
+          fromto="0 0 0 0 0 0.8"
+          size="0.045"
+          mass="1.0"
+          material="pd_arm_material"
+        />
+        <geom
+          name="pd_joint_hub"
+          type="cylinder"
+          quat="0.707107 0.707107 0 0"
+          size="0.085 0.075"
+          mass="0.05"
+          material="joint_material"
+          contype="0"
+          conaffinity="0"
+        />
+        <site
+          name="pd_end_effector"
+          type="sphere"
+          pos="0 0 0.8"
+          size="0.06"
+          rgba="0.75 0.92 1 1"
+        />
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="p_torque_motor" joint="p_hinge" gear="1" ctrlrange="-3 3"/>
+    <motor name="pd_torque_motor" joint="pd_hinge" gear="1" ctrlrange="-3 3"/>
+  </actuator>
+</mujoco>
