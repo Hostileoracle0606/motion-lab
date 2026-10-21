@@ -106,7 +106,8 @@ These are hypotheses to test, not reported findings:
 
 ## System under study
 
-The initial implementation should use the smallest MuJoCo model that makes the comparison meaningful: a single actuated rotational joint or similarly simple one-degree-of-freedom plant.
+The implementation uses the smallest MuJoCo model that makes the comparison
+meaningful: a single actuated rotational joint with one degree of freedom.
 
 The model specification must declare:
 
@@ -139,8 +140,9 @@ declared values:
 | Solver | Newton |
 | Demonstration poses | -pi/3 rad start keyframe and +pi/3 rad visible target |
 
-The controller interval is not defined by the model and will be declared by the
-experiment configuration when the control loop is implemented.
+The controller interval is not defined by the model. It is declared by the
+experiment configuration and validated against the simulation time step before
+an episode runs.
 
 ## Controllers
 
