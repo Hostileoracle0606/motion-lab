@@ -227,8 +227,10 @@ multi-scenario metrics.
 ## Versioned evaluation baseline
 
 `configs/evaluation-v1.toml` is the initial formal evaluation input. Scenarios
-live once at the suite level, so a future evaluator must give P and PD the same
-start-target pairs rather than maintaining controller-specific copies.
+live once at the suite level. `build_evaluation_plan` expands that single
+ordered scenario-and-seed suite across both P and PD, so downstream execution
+cannot maintain controller-specific copies. Running every planned case remains
+the responsibility of the multi-scenario evaluator.
 
 | Element | Declared value |
 | --- | --- |
