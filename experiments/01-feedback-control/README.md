@@ -2,14 +2,14 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, closed-loop runner, declared gain sweep, and real-time visual replay implemented; recorded datasets and formal evaluated results not yet published.**
+> **In progress — environment, model, controllers, closed-loop runner, trajectory schema and validator, declared gain sweep, and real-time visual replay implemented; formal evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
-equations, a deterministic closed-loop episode runner, and a theory-guided gain
-sweep. Persisted trajectory data and verified benchmark results have not been
-published yet. Values described as planned below remain starting points rather
-than measurements.
+equations, a deterministic closed-loop episode runner, versioned trajectory
+persistence and validation, and a theory-guided gain sweep. Evaluated result
+artifacts have not been published yet. Values described as planned below remain
+starting points rather than measurements.
 
 ## Research question
 
@@ -278,36 +278,86 @@ Metrics should be computed after collection from the recorded trajectory, rather
 The initial runner uses a 0.002 s MuJoCo simulation step and a 0.010 s control
 interval, so each selected action is held for five physics steps. A four-second
 episode therefore contains 400 controller observations and 2,000 physics steps.
-The control loop records samples in memory; durable serialization is intentionally
-left to the trajectory-recording task.
+The control loop records samples in memory. `trajectory.py` losslessly converts
+those samples and the final simulator state into durable transitions.
 
 ## Transition record
 
-This experiment begins the data path toward learned dynamics. Each control step should eventually record:
+`src/feedback_control/trajectory.py` defines trajectory schema version 1. One
+UTF-8 JSON file contains one complete episode. `save_trajectory` creates and
+validates a record; `load_trajectory` reconstructs the typed record and runs the
+same validation again. Generated files belong under `results/trajectories/`,
+which is ignored by Git unless a small artifact is deliberately selected as
+published evidence.
 
-```text
-episode_id
-step_index
-time_s
-state                 # at least q_t and qdot_t
-target_state
-controller_output     # before clipping
-action                # applied after clipping
-next_state
-position_error
-velocity_error
-action_saturated
-terminated
-truncated
-termination_reason
-controller_type
-controller_gains
-environment_version
-config_digest
-seed
+Episode-level metadata has this contract:
+
+| Field | Type / shape | Meaning |
+| --- | --- | --- |
+| `schema_version` | integer scalar | Exact on-disk contract version; currently `1` |
+| `episode_id` | non-empty string | Stable identity chosen by the collection caller |
+| `seed` | non-negative integer | Declared collection seed, including `0` for the deterministic runner |
+| `environment_id` | string | `motion-lab/experiment-01/one-link` |
+| `environment_version` | 64-character SHA-256 | Digest of the MuJoCo XML bytes |
+| `mujoco_version` | string | Installed MuJoCo package version |
+| `config_digest` | 64-character SHA-256 | Digest of the canonical embedded configuration |
+| `configuration` | object | Model identity, timing, state/target, limit, and both controllers' gains |
+| `controller` | object | Selected controller name and its `kp`/`kd` gains |
+| `transitions` | ordered array | One object for every control interval |
+
+Each transition has this contract:
+
+| Field | Type / shape | Unit and meaning |
+| --- | --- | --- |
+| `step_index` | integer scalar | Zero-based, contiguous control-step index |
+| `time_s` | finite number | Seconds from reset; exactly `step_index * control_interval_s` |
+| `state` | two-scalar object | `position_rad` in rad and `velocity_rad_s` in rad/s at time \(t\) |
+| `target` | two-scalar object | Target position in rad and target velocity in rad/s |
+| `raw_torque_nm` | finite number | Controller request before clipping, in N m |
+| `applied_torque_nm` | finite number | Action held for the interval after clipping, in N m |
+| `saturated` | Boolean | Whether clipping changed the controller request |
+| `next_state` | two-scalar object | Position and velocity after the configured simulator advance |
+| `terminated` | Boolean | A declared task/failure terminal condition occurred |
+| `truncated` | Boolean | An external limit ended the episode |
+| `termination_reason` | string or `null` | Boundary reason; `null` before the final transition |
+
+The temporal contract is `(state_t, applied_torque_t) -> next_state_t`:
+`state` is observed before the action is applied, and `next_state` is observed
+after the configured simulator substeps. Consequently,
+`next_state[t] == state[t + 1]`. The final transition uses the runner's final
+state instead of inventing an extra control interval. The current runner always
+reaches its fixed time limit, so only the last transition has
+`truncated=true` and `termination_reason="time_limit"`.
+
+Validation rejects incompatible or incomplete schemas; non-finite numbers;
+invalid shapes, types, identities, timing, and terminal boundaries;
+discontinuous state chains; configuration/controller inconsistencies; and
+applied actions outside or inconsistent with the configured torque limit.
+
+Programmatic use is deliberately separate from simulation:
+
+```python
+from pathlib import Path
+
+from feedback_control.trajectory import load_trajectory, save_trajectory
+
+trajectory_path = Path(
+    "experiments/01-feedback-control/results/trajectories/p-seed-0.json"
+)
+saved = save_trajectory(
+    trajectory_path,
+    episode_id="p-seed-0",
+    seed=0,
+    result=result,
+    config=config,
+)
+loaded = load_trajectory(trajectory_path)
+assert loaded == saved
 ```
 
-The observation/action order must be explicit: `state` is observed before `action` is applied, and `next_state` is observed after the configured simulator advance.
+Here `result` is an existing `EpisodeResult` and `config` is the exact
+`ExperimentConfig` used to produce it. `save_trajectory` returns the validated
+record; the caller retains the output path separately.
 
 ## Evaluation metrics
 
@@ -417,7 +467,7 @@ Experiment 01 cannot be marked complete until:
 - [ ] Runtime and dependencies are pinned.
 - [ ] All experiment-defining values are in versioned configuration.
 - [ ] Initial conditions, targets, and seeds are declared.
-- [ ] Trajectory schema and validator are implemented.
+- [x] Trajectory schema and validator are implemented.
 - [ ] Unit tests cover controller equations, clipping, and metrics.
 - [ ] A deterministic smoke run passes from a clean checkout.
 - [ ] The full evaluation is generated by a documented command.
