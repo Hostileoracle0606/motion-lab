@@ -51,6 +51,7 @@ def test_report_is_generated_only_from_validated_saved_records(
 
     artifacts = generate_report(
         input_dir=input_dir,
+        config_path=tmp_path / "evaluation.toml",
         output_dir=output_dir,
         command=REPORT_COMMAND,
     )
@@ -96,6 +97,14 @@ def test_report_is_generated_only_from_validated_saved_records(
 
     report = (output_dir / "report.md").read_text(encoding="utf-8")
     assert "## Observed" in report
+    assert "## Protocol" in report
+    assert "### Gain selection" in report
+    assert "### Metric definitions and tolerances" in report
+    assert "0.1 to 0.9" in report
+    assert "0.05 rad" in report
+    assert "0.1 rad/s" in report
+    assert "final 0.01 s" in report
+    assert "sum of squared applied torque" in report
     assert "## Interpretation" in report
     assert "## Unknowns and limitations" in report
     assert "## Source records" in report
@@ -114,6 +123,7 @@ def test_report_generation_is_byte_reproducible(tmp_path: Path) -> None:
     output_dir = tmp_path / "report"
     first_artifacts = generate_report(
         input_dir=input_dir,
+        config_path=tmp_path / "evaluation.toml",
         output_dir=output_dir,
         command=REPORT_COMMAND,
     )
@@ -121,6 +131,7 @@ def test_report_generation_is_byte_reproducible(tmp_path: Path) -> None:
 
     second_artifacts = generate_report(
         input_dir=input_dir,
+        config_path=tmp_path / "evaluation.toml",
         output_dir=output_dir,
         command=REPORT_COMMAND,
     )
@@ -137,7 +148,19 @@ def test_report_rejects_a_trajectory_checksum_mismatch(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ValueError, match="trajectory checksum mismatch"):
-        load_evaluation_evidence(input_dir)
+        load_evaluation_evidence(input_dir, tmp_path / "evaluation.toml")
+
+
+def test_report_rejects_a_configuration_checksum_mismatch(tmp_path: Path) -> None:
+    input_dir = _evaluation_input(tmp_path)
+    config_path = tmp_path / "evaluation.toml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="configuration checksum mismatch"):
+        load_evaluation_evidence(input_dir, config_path)
 
 
 def test_report_command_consumes_existing_records(tmp_path: Path) -> None:
@@ -150,6 +173,8 @@ def test_report_command_consumes_existing_records(tmp_path: Path) -> None:
             str(SCRIPT_PATH),
             "--input",
             str(input_dir),
+            "--config",
+            str(tmp_path / "evaluation.toml"),
             "--output",
             str(output_dir),
         ),

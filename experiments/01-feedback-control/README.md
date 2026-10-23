@@ -597,11 +597,13 @@ MuJoCo:
 ```bash
 uv run python experiments/01-feedback-control/scripts/generate_report.py \
   --input experiments/01-feedback-control/results/evaluation-v1 \
+  --config experiments/01-feedback-control/configs/evaluation-v1.toml \
   --output experiments/01-feedback-control/results/evaluation-v1/report
 ```
 
-The report generator verifies the evaluation schema, each trajectory SHA-256,
-and each trajectory's existing schema and provenance before producing:
+The report generator verifies the evaluation schema, configuration SHA-256,
+each trajectory SHA-256, and each trajectory's existing schema and provenance
+before producing:
 
 - `report.md`, with provenance, observed values, interpretation boundaries,
   limitations, and source-record links;

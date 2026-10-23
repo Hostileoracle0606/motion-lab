@@ -17,11 +17,19 @@ DEFAULT_INPUT = (
     / "evaluation-v1"
 )
 DEFAULT_OUTPUT = DEFAULT_INPUT / "report"
+DEFAULT_CONFIG = (
+    REPOSITORY_ROOT
+    / "experiments"
+    / "01-feedback-control"
+    / "configs"
+    / "evaluation-v1.toml"
+)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     arguments = parser.parse_args()
     command = shlex.join(
@@ -35,6 +43,7 @@ def main() -> None:
     )
     artifacts = generate_report(
         input_dir=arguments.input,
+        config_path=arguments.config,
         output_dir=arguments.output,
         command=command,
     )
