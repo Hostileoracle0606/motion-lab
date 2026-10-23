@@ -2,14 +2,14 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, closed-loop runner, declared gain sweep, and real-time visual replay implemented; recorded datasets and formal evaluated results not yet published.**
+> **In progress — environment, model, controllers, closed-loop runner, declared gain sweep, versioned evaluation scenario suite, and real-time visual replay implemented; recorded datasets and formal evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
-equations, a deterministic closed-loop episode runner, and a theory-guided gain
-sweep. Persisted trajectory data and verified benchmark results have not been
-published yet. Values described as planned below remain starting points rather
-than measurements.
+equations, a deterministic closed-loop episode runner, a theory-guided gain
+sweep, and a versioned multi-scenario evaluation configuration. Persisted
+trajectory data and verified benchmark results have not been published yet.
+The declared protocol remains an input to future evaluation, not a measurement.
 
 ## Research question
 
@@ -223,25 +223,55 @@ error, final speed, overshoot, peak speed, saturated steps, and target crossings
 for inspection. These are tuning diagnostics, not yet the experiment's formal
 multi-scenario metrics.
 
-## Planned setup
+## Versioned evaluation baseline
 
-Exact values must be committed in configuration before execution. The initial protocol should include:
+`configs/evaluation-v1.toml` is the initial formal evaluation input. Scenarios
+live once at the suite level, so a future evaluator must give P and PD the same
+start-target pairs rather than maintaining controller-specific copies.
 
-| Element | Planned choice |
+| Element | Declared value |
 | --- | --- |
-| Plant | One actuated rotational joint |
-| Simulator | MuJoCo, version pinned with the implementation |
-| Target velocity | Zero |
-| Initial states | Fixed, versioned set spanning both target directions |
-| Targets | Fixed, versioned set within joint limits |
-| Episode length | Fixed duration sufficient to observe settling or timeout |
-| Control rate | Fixed and reported separately from simulator step |
-| P sweep | Small declared grid of \(K_p\) values |
-| PD sweep | Declared grid of \((K_p,K_d)\) values |
-| Seeds | Declared list, even if the base environment is deterministic |
-| Action limit | Identical for P and PD |
+| Schema | Version 1 |
+| Plant | `models/one_link.xml` |
+| Physics step | 0.002 s |
+| Control interval | 0.010 s |
+| Episode duration | 4.0 s |
+| Target and initial velocity | 0 rad/s |
+| Seeds | `[0]` |
+| P gains | `Kp = 2.0` |
+| PD gains | `Kp = 2.0`, `Kd = 1.3` |
+| Applied-torque limit | 3.0 N m, symmetric |
+| Rise thresholds | 10% to 90% of the commanded change |
+| Settling band | 0.05 rad and 0.10 rad/s |
+| Steady-state window | Final 0.50 s |
+| Noise | Zero position, velocity, and action noise |
 
-If noise, delay, or parameter perturbations are added, the noiseless nominal experiment remains the first baseline and each perturbation becomes a separate scenario group.
+The four fixed scenarios are:
+
+| Scenario | Start (rad) | Target (rad) | Direction |
+| --- | ---: | ---: | --- |
+| `negative-to-positive-wide` | -1.047198 | 1.047198 | Positive |
+| `positive-to-negative-wide` | 1.047198 | -1.047198 | Negative |
+| `negative-to-positive-narrow` | -0.523599 | 0.523599 | Positive |
+| `positive-to-negative-narrow` | 0.523599 | -0.523599 | Negative |
+
+This is sufficient for the first noiseless baseline because it exercises both
+command directions at two magnitudes while keeping the plant, gains, timing,
+limits, target velocity, and disturbances fixed. The symmetry makes a
+direction-dependent implementation mistake visible without adding a large
+scenario grid. It is not evidence about noisy sensing, delays, perturbed plant
+parameters, other gains, or other robot models.
+
+The public `load_evaluation_config` seam rejects unsupported schema versions,
+missing or duplicate seeds, invalid timing, model-contract mismatches,
+non-finite or out-of-range states, duplicate or degenerate scenarios,
+one-direction-only suites, and inconsistent metric thresholds. Failure rules
+declare non-finite state, joint-limit violation, and failure to settle by the
+timeout as episode failures. Those failures must remain in aggregate reporting.
+
+If noise, delay, or parameter perturbations are added, the noiseless nominal
+experiment remains the first baseline and each perturbation becomes a separate
+scenario group.
 
 ## Fair-comparison rules
 
@@ -415,8 +445,8 @@ Experiment 01 cannot be marked complete until:
 
 - [ ] MuJoCo model and controller code are committed.
 - [ ] Runtime and dependencies are pinned.
-- [ ] All experiment-defining values are in versioned configuration.
-- [ ] Initial conditions, targets, and seeds are declared.
+- [x] All experiment-defining values are in versioned configuration.
+- [x] Initial conditions, targets, and seeds are declared.
 - [ ] Trajectory schema and validator are implemented.
 - [ ] Unit tests cover controller equations, clipping, and metrics.
 - [ ] A deterministic smoke run passes from a clean checkout.
