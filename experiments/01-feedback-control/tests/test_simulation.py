@@ -25,6 +25,27 @@ def test_episode_starts_from_configured_state(config: ExperimentConfig) -> None:
     assert first.velocity_rad_s == pytest.approx(0.0)
 
 
+def test_episode_initializes_declared_scenario_state(
+    config: ExperimentConfig,
+) -> None:
+    scenario_config = replace(
+        config,
+        episode=replace(
+            config.episode,
+            duration_s=config.episode.control_interval_s,
+            start_position_rad=-0.5,
+            initial_velocity_rad_s=0.25,
+            target_position_rad=0.5,
+        ),
+    )
+
+    result = run_episode(scenario_config, "p")
+    first = result.samples[0]
+
+    assert first.position_rad == pytest.approx(-0.5)
+    assert first.velocity_rad_s == pytest.approx(0.25)
+
+
 def test_episode_uses_declared_control_schedule(config: ExperimentConfig) -> None:
     result = run_episode(config, "p")
     sample_times = [sample.time_s for sample in result.samples]

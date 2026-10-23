@@ -14,7 +14,7 @@ from feedback_control.config import ExperimentConfig
 from feedback_control.simulation import EpisodeResult
 
 
-TRAJECTORY_SCHEMA_VERSION = 2
+TRAJECTORY_SCHEMA_VERSION = 3
 ENVIRONMENT_ID = "motion-lab/experiment-01/one-link"
 
 
@@ -48,6 +48,7 @@ class ConfigurationProvenance:
     position_lower_limit_rad: float
     position_upper_limit_rad: float
     start_position_rad: float
+    initial_velocity_rad_s: float
     target_position_rad: float
     target_velocity_rad_s: float
     torque_limit_nm: float
@@ -183,7 +184,18 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
         record.configuration.episode_duration_s
         / record.configuration.control_interval_s
     )
-    if len(record.transitions) != expected_transition_count:
+    final_transition = record.transitions[-1] if record.transitions else None
+    transition_count_is_invalid = (
+        len(record.transitions) > expected_transition_count
+        or (
+            len(record.transitions) < expected_transition_count
+            and (
+                final_transition is None
+                or not final_transition.terminated
+            )
+        )
+    )
+    if transition_count_is_invalid:
         raise ValueError(
             "transition count does not match configured episode duration"
         )
@@ -307,6 +319,13 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
         abs_tol=1e-12,
     ):
         raise ValueError("initial state does not match configuration")
+    if not math.isclose(
+        first.state.velocity_rad_s,
+        record.configuration.initial_velocity_rad_s,
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise ValueError("initial state does not match configuration")
 
 
 def _validate_configuration(configuration: ConfigurationProvenance) -> None:
@@ -328,6 +347,7 @@ def _validate_configuration(configuration: ConfigurationProvenance) -> None:
         "position_lower_limit_rad": configuration.position_lower_limit_rad,
         "position_upper_limit_rad": configuration.position_upper_limit_rad,
         "start_position_rad": configuration.start_position_rad,
+        "initial_velocity_rad_s": configuration.initial_velocity_rad_s,
         "target_position_rad": configuration.target_position_rad,
         "target_velocity_rad_s": configuration.target_velocity_rad_s,
         "torque_limit_nm": configuration.torque_limit_nm,
@@ -453,9 +473,9 @@ def _build_trajectory_record(
                 applied_torque_nm=sample.applied_torque_nm,
                 saturated=sample.saturated,
                 next_state=next_state,
-                terminated=False,
-                truncated=is_last,
-                termination_reason="time_limit" if is_last else None,
+                terminated=is_last and result.terminated,
+                truncated=is_last and result.truncated,
+                termination_reason=result.termination_reason if is_last else None,
             )
         )
     return TrajectoryRecord(
@@ -490,6 +510,7 @@ def _configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenan
         position_lower_limit_rad=float(position_lower_limit_rad),
         position_upper_limit_rad=float(position_upper_limit_rad),
         start_position_rad=config.episode.start_position_rad,
+        initial_velocity_rad_s=config.episode.initial_velocity_rad_s,
         target_position_rad=config.episode.target_position_rad,
         target_velocity_rad_s=config.episode.target_velocity_rad_s,
         torque_limit_nm=config.episode.torque_limit_nm,
@@ -543,6 +564,7 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
             "position_lower_limit_rad",
             "position_upper_limit_rad",
             "start_position_rad",
+            "initial_velocity_rad_s",
             "target_position_rad",
             "target_velocity_rad_s",
             "torque_limit_nm",
@@ -562,6 +584,7 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
         position_lower_limit_rad=configuration_payload["position_lower_limit_rad"],
         position_upper_limit_rad=configuration_payload["position_upper_limit_rad"],
         start_position_rad=configuration_payload["start_position_rad"],
+        initial_velocity_rad_s=configuration_payload["initial_velocity_rad_s"],
         target_position_rad=configuration_payload["target_position_rad"],
         target_velocity_rad_s=configuration_payload["target_velocity_rad_s"],
         torque_limit_nm=configuration_payload["torque_limit_nm"],

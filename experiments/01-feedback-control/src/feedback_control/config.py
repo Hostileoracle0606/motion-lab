@@ -21,6 +21,7 @@ class EpisodeConfig:
     duration_s: float
     control_interval_s: float
     start_position_rad: float
+    initial_velocity_rad_s: float
     target_position_rad: float
     target_velocity_rad_s: float
     torque_limit_nm: float
@@ -124,6 +125,9 @@ def load_experiment_config(path: Path) -> ExperimentConfig:
             duration_s=float(episode_values["duration_s"]),
             control_interval_s=float(episode_values["control_interval_s"]),
             start_position_rad=float(episode_values["start_position_rad"]),
+            initial_velocity_rad_s=float(
+                episode_values["initial_velocity_rad_s"]
+            ),
             target_position_rad=float(episode_values["target_position_rad"]),
             target_velocity_rad_s=float(episode_values["target_velocity_rad_s"]),
             torque_limit_nm=float(episode_values["torque_limit_nm"]),
@@ -425,6 +429,7 @@ def validate_experiment_config(config: ExperimentConfig) -> None:
 
     state_values = {
         "start_position_rad": config.episode.start_position_rad,
+        "initial_velocity_rad_s": config.episode.initial_velocity_rad_s,
         "target_position_rad": config.episode.target_position_rad,
         "target_velocity_rad_s": config.episode.target_velocity_rad_s,
     }

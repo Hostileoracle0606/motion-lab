@@ -37,11 +37,16 @@ class EpisodeResult:
     final_time_s: float
     final_position_rad: float
     final_velocity_rad_s: float
+    terminated: bool = False
+    truncated: bool = True
+    termination_reason: str = "time_limit"
 
 
 def run_episode(
     config: ExperimentConfig,
     controller: ControllerName,
+    *,
+    terminate_on_joint_limit: bool = False,
 ) -> EpisodeResult:
     """Run one deterministic observe-control-step episode."""
     validate_experiment_config(config)
@@ -61,14 +66,9 @@ def run_episode(
         raise ValueError(f"unknown model keyframe: {config.model.keyframe!r}")
 
     mujoco.mj_resetDataKeyframe(model, data, keyframe_id)
+    data.qpos[0] = config.episode.start_position_rad
+    data.qvel[0] = config.episode.initial_velocity_rad_s
     mujoco.mj_forward(model, data)
-    if not math.isclose(
-        float(data.qpos[0]),
-        config.episode.start_position_rad,
-        rel_tol=0.0,
-        abs_tol=1e-9,
-    ):
-        raise ValueError("model keyframe does not match configured start position")
 
     simulation_substeps = round(
         config.episode.control_interval_s / config.model.simulation_timestep_s
@@ -76,6 +76,8 @@ def run_episode(
     control_steps = round(
         config.episode.duration_s / config.episode.control_interval_s
     )
+    joint_min, joint_max = model.jnt_range[0]
+    termination_reason: str | None = None
 
     samples: list[TrajectorySample] = []
     for step_index in range(control_steps):
@@ -102,6 +104,11 @@ def run_episode(
         data.ctrl[0] = output.applied_torque
         for _ in range(simulation_substeps):
             mujoco.mj_step(model, data)
+        if terminate_on_joint_limit and not joint_min <= data.qpos[0] <= joint_max:
+            data.qpos[0] = max(joint_min, min(joint_max, data.qpos[0]))
+            mujoco.mj_forward(model, data)
+            termination_reason = "joint_limit_violation"
+            break
 
     return EpisodeResult(
         controller=controller,
@@ -109,6 +116,9 @@ def run_episode(
         final_time_s=float(data.time),
         final_position_rad=float(data.qpos[0]),
         final_velocity_rad_s=float(data.qvel[0]),
+        terminated=termination_reason is not None,
+        truncated=termination_reason is None,
+        termination_reason=termination_reason or "time_limit",
     )
 
 

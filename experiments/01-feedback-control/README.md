@@ -2,15 +2,15 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, closed-loop runner, trajectory schema and validator, pure controller metrics, declared gain sweep, versioned evaluation scenario suite, and real-time visual replay implemented; formal evaluated results not yet published.**
+> **In progress — environment, model, controllers, closed-loop runner, trajectory schema and validator, controller metrics, versioned evaluation suite, reproducible multi-scenario evaluator, declared gain sweep, and real-time visual replay implemented; formal evaluated results not yet published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
 equations, a deterministic closed-loop episode runner, versioned trajectory
 persistence and validation, pure trajectory metrics, a theory-guided gain sweep,
-and a versioned multi-scenario evaluation configuration. Evaluated result
-artifacts have not been published. The declared protocol remains an input to
-future evaluation, not a measurement.
+and a versioned multi-scenario evaluator. Evaluated result artifacts have not
+been published. The implemented protocol and command make measurements
+reproducible; they are not themselves a reported comparison result.
 
 ## Research question
 
@@ -47,6 +47,18 @@ Inspect the declared P and PD gain sweep:
 ```bash
 uv run python experiments/01-feedback-control/scripts/sweep_gains.py
 ```
+
+Run the complete versioned P-versus-PD evaluation from a clean checkout:
+
+```bash
+uv run python experiments/01-feedback-control/scripts/run_evaluation.py
+```
+
+The command writes validated per-episode trajectories and
+`evaluation.json` under
+`experiments/01-feedback-control/results/evaluation-v1/`. It refuses to label
+a dirty working tree as a clean commit. `--allow-dirty` is available for local
+development runs and records `working_tree_dirty=true` in the summary.
 
 Run the screen-recordable visual comparison on macOS:
 
@@ -309,14 +321,16 @@ Metrics should be computed after collection from the recorded trajectory, rather
 ### Implemented closed-loop runner
 
 The initial runner uses a 0.002 s MuJoCo simulation step and a 0.010 s control
-interval, so each selected action is held for five physics steps. A four-second
+interval, so each selected action is held for five physics steps. The runner
+resets the model and then applies the scenario's declared initial position and
+velocity before the first observation. A four-second
 episode therefore contains 400 controller observations and 2,000 physics steps.
 The control loop records samples in memory. `trajectory.py` losslessly converts
 those samples and the final simulator state into durable transitions.
 
 ## Transition record
 
-`src/feedback_control/trajectory.py` defines trajectory schema version 2. One
+`src/feedback_control/trajectory.py` defines trajectory schema version 3. One
 UTF-8 JSON file contains one complete episode. `save_trajectory` creates and
 validates a record; `load_trajectory` reconstructs the typed record and runs the
 same validation again. Generated files belong under `results/trajectories/`,
@@ -327,7 +341,7 @@ Episode-level metadata has this contract:
 
 | Field | Type / shape | Meaning |
 | --- | --- | --- |
-| `schema_version` | integer scalar | Exact on-disk contract version; currently `2` |
+| `schema_version` | integer scalar | Exact on-disk contract version; currently `3` |
 | `episode_id` | non-empty string | Stable identity chosen by the collection caller |
 | `seed` | non-negative integer | Declared collection seed, including `0` for the deterministic runner |
 | `code_version` | 40- or 64-character lowercase hexadecimal string | Full Git commit object ID for the source used to collect the episode |
@@ -335,7 +349,7 @@ Episode-level metadata has this contract:
 | `environment_version` | 64-character SHA-256 | Digest of the MuJoCo XML bytes |
 | `mujoco_version` | string | Installed MuJoCo package version |
 | `config_digest` | 64-character SHA-256 | Digest of the canonical embedded configuration |
-| `configuration` | object | Model identity, timing, state/target, explicit position and torque limits, and both controllers' gains |
+| `configuration` | object | Model identity, timing, initial position and velocity, target, explicit position and torque limits, and both controllers' gains |
 | `controller` | object | Selected controller name and its `kp`/`kd` gains |
 | `transitions` | ordered array | One object for every control interval |
 
@@ -492,12 +506,12 @@ is not counted as an additional interval. It validates that the target,
 positions, and control interval are finite, requires at least one sample, and
 reports the result in radian-seconds.
 
-The episode-level `evaluate_episode` boundary applies that pure metric to the
-pre-action samples in one `EpisodeResult`. It requires a non-empty,
+The episode-level `evaluate_episode` boundary applies all declared metrics to
+the pre-action samples in one `EpisodeResult`. It requires a non-empty,
 static-target episode and verifies that the declared control interval matches
 every recorded interval, including the final sample-to-terminal-state advance.
 The terminal state checks the final interval duration but does not contribute a
-second position-error sample.
+second metric sample.
 
 ### Control effort
 
@@ -532,6 +546,34 @@ outside that limit as invalid data. All metric functions reject empty or
 non-finite numeric inputs instead of producing aggregate values from corrupted
 trajectories.
 
+## Reproducible multi-scenario evaluator
+
+`src/feedback_control/evaluator.py` loads the versioned evaluation suite and
+expands the shared scenario-and-seed plan across P and PD. For every plan case,
+it initializes the declared state, runs the controller, saves and reloads the
+trajectory through schema validation, evaluates the common metric boundary,
+and retains the episode in controller aggregates even when it did not settle.
+When the declared joint-limit failure rule is active, the runner terminates at
+the first violating control interval and projects the terminal position to the
+crossed bound before persistence. The valid record retains the action, terminal
+velocity, and explicit `joint_limit_violation` reason without storing an
+out-of-contract position as trusted evidence.
+
+The generated `evaluation.json` contains:
+
+- the full source commit and whether tracked files were dirty;
+- the evaluation-config SHA-256, Python, platform, and MuJoCo versions;
+- the exact command and deterministic comparison tolerance;
+- one episode entry with status, failure reasons, metrics, configuration
+  digest, trajectory path, and trajectory SHA-256;
+- one aggregate per controller, including episode, failure, exclusion,
+  undefined-timing, and unsettled counts.
+
+Aggregate means include every non-excluded episode. Timing metrics separately
+report measured and undefined counts, so an unsettled run cannot disappear
+behind a mean computed only from successful runs. The current protocol defines
+no exclusions.
+
 ## Analysis and plots
 
 Planned outputs for each comparison:
@@ -556,9 +598,9 @@ Experiment 01 cannot be marked complete until:
 - [x] Initial conditions, targets, and seeds are declared.
 - [x] Trajectory schema and validator are implemented.
 - [x] Unit tests cover controller equations, clipping, and metrics.
-- [ ] A deterministic smoke run passes from a clean checkout.
-- [ ] The full evaluation is generated by a documented command.
-- [ ] Raw or losslessly derived metric records are retained.
+- [x] A deterministic smoke run passes from a clean checkout.
+- [x] The full evaluation is generated by a documented command.
+- [x] Raw or losslessly derived metric records are retained.
 - [ ] Reported tables and plots can be regenerated.
 - [ ] Results include variability and all declared failures.
 
