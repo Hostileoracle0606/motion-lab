@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from feedback_control.config import MetricThresholds, load_experiment_config
-from feedback_control.evaluation import evaluate_episode
+from feedback_control.evaluation import MetricAvailability, evaluate_episode
 from feedback_control.metrics import TimingOutcome
 from feedback_control.simulation import EpisodeResult, TrajectorySample, run_episode
 
@@ -69,6 +69,10 @@ def test_episode_evaluation_reports_all_declared_metrics() -> None:
     assert metrics.settling_time.outcome is TimingOutcome.MEASURED
     assert metrics.settling_time.time_s == pytest.approx(0.2)
     assert metrics.steady_state_absolute_error_rad == pytest.approx(0.075)
+    assert (
+        metrics.steady_state_error_availability
+        is MetricAvailability.MEASURED
+    )
     assert metrics.squared_control_effort_nm2_s == pytest.approx(0.225)
     assert metrics.saturation_fraction == pytest.approx(0.5)
 
@@ -95,6 +99,35 @@ def test_real_one_step_episode_uses_one_pre_action_sample() -> None:
     assert len(result.samples) == 1
     assert result.final_position_rad != pytest.approx(result.samples[0].position_rad)
     assert metrics.integrated_absolute_error_rad_s == pytest.approx(expected_iae)
+
+
+def test_early_terminal_episode_marks_tail_metric_unavailable() -> None:
+    config = load_experiment_config(CONFIG_PATH)
+    one_step_config = replace(
+        config,
+        episode=replace(
+            config.episode,
+            duration_s=config.episode.control_interval_s,
+        ),
+    )
+    result = run_episode(one_step_config, "p")
+    long_tail_thresholds = replace(
+        TEST_THRESHOLDS,
+        steady_state_window_s=0.5,
+    )
+
+    metrics = evaluate_episode(
+        result,
+        control_interval_s=config.episode.control_interval_s,
+        thresholds=long_tail_thresholds,
+        torque_limit_nm=config.episode.torque_limit_nm,
+    )
+
+    assert metrics.steady_state_absolute_error_rad is None
+    assert (
+        metrics.steady_state_error_availability
+        is MetricAvailability.INSUFFICIENT_DURATION
+    )
 
 
 def test_evaluate_episode_rejects_empty_episode() -> None:

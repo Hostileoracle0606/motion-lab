@@ -93,6 +93,14 @@ def test_short_evaluation_persists_traceable_complete_plan(
     assert all(aggregate.episode_count == 4 for aggregate in result.aggregates)
     assert all(aggregate.included_episode_count == 4 for aggregate in result.aggregates)
     assert all(aggregate.failed_episode_count == 4 for aggregate in result.aggregates)
+    assert all(
+        aggregate.measured_steady_state_error_count == 4
+        for aggregate in result.aggregates
+    )
+    assert all(
+        aggregate.unavailable_steady_state_error_count == 0
+        for aggregate in result.aggregates
+    )
 
     summary_path = output_dir / "evaluation.json"
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -170,7 +178,11 @@ def test_non_finite_failure_is_persisted_and_retained(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    config_path = _write_evaluation_config(tmp_path)
+    config_path = _write_evaluation_config(
+        tmp_path,
+        duration_s=1.0,
+        steady_state_window_s=0.5,
+    )
     output_dir = tmp_path / "non-finite-output"
 
     def non_finite_episode(config, controller, **_options):
@@ -191,7 +203,7 @@ def test_non_finite_failure_is_persisted_and_retained(
             ),
             final_time_s=config.episode.control_interval_s,
             final_position_rad=None,
-            final_velocity_rad_s=None,
+            final_velocity_rad_s=0.25,
             terminated=True,
             truncated=False,
             termination_reason="non_finite_state",
@@ -219,9 +231,23 @@ def test_non_finite_failure_is_persisted_and_retained(
         output_dir / result.episodes[0].trajectory_file
     )
     final_transition = trajectory.transitions[-1]
-    assert final_transition.next_state is None
+    assert final_transition.next_state.position_rad is None
+    assert final_transition.next_state.velocity_rad_s == 0.25
     assert final_transition.non_finite_state_fields == ("position_rad",)
     assert final_transition.termination_reason == "non_finite_state"
+    assert result.episodes[0].metrics.steady_state_absolute_error_rad is None
+    assert all(
+        aggregate.mean_measured_steady_state_absolute_error_rad is None
+        for aggregate in result.aggregates
+    )
+    assert all(
+        aggregate.measured_steady_state_error_count == 0
+        for aggregate in result.aggregates
+    )
+    assert all(
+        aggregate.unavailable_steady_state_error_count == 4
+        for aggregate in result.aggregates
+    )
 
 
 def test_same_command_regenerates_identical_output(tmp_path: Path) -> None:

@@ -46,6 +46,42 @@ def test_episode_initializes_declared_scenario_state(
     assert first.velocity_rad_s == pytest.approx(0.25)
 
 
+def test_episode_reports_non_finite_post_step_components(
+    config: ExperimentConfig,
+    monkeypatch,
+) -> None:
+    one_step_config = replace(
+        config,
+        episode=replace(
+            config.episode,
+            duration_s=config.episode.control_interval_s,
+        ),
+    )
+
+    def inject_non_finite_state(model, data) -> None:
+        data.qpos[0] = float("nan")
+        data.qvel[0] = 0.25
+        data.time += model.opt.timestep
+
+    monkeypatch.setattr(
+        "feedback_control.simulation.mujoco.mj_step",
+        inject_non_finite_state,
+    )
+
+    result = run_episode(
+        one_step_config,
+        "p",
+        terminate_on_non_finite_state=True,
+    )
+
+    assert result.terminated is True
+    assert result.truncated is False
+    assert result.termination_reason == "non_finite_state"
+    assert result.non_finite_state_fields == ("position_rad",)
+    assert result.final_position_rad is None
+    assert result.final_velocity_rad_s == pytest.approx(0.25)
+
+
 def test_episode_uses_declared_control_schedule(config: ExperimentConfig) -> None:
     result = run_episode(config, "p")
     sample_times = [sample.time_s for sample in result.samples]

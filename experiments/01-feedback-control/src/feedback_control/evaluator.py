@@ -70,7 +70,9 @@ class ControllerAggregate:
     excluded_episode_count: int
     mean_integrated_absolute_error_rad_s: float
     mean_normalized_maximum_overshoot: float
-    mean_steady_state_absolute_error_rad: float
+    mean_measured_steady_state_absolute_error_rad: float | None
+    measured_steady_state_error_count: int
+    unavailable_steady_state_error_count: int
     mean_squared_control_effort_nm2_s: float
     mean_saturation_fraction: float
     mean_measured_rise_time_s: float | None
@@ -241,12 +243,8 @@ def _episode_result(record: TrajectoryRecord) -> EpisodeResult:
         final_time_s=(
             final_transition.time_s + record.configuration.control_interval_s
         ),
-        final_position_rad=(
-            final_state.position_rad if final_state is not None else None
-        ),
-        final_velocity_rad_s=(
-            final_state.velocity_rad_s if final_state is not None else None
-        ),
+        final_position_rad=final_state.position_rad,
+        final_velocity_rad_s=final_state.velocity_rad_s,
         terminated=final_transition.terminated,
         truncated=final_transition.truncated,
         termination_reason=cast(str, final_transition.termination_reason),
@@ -294,6 +292,11 @@ def _aggregate_controller(
         for episode in included
         if episode.metrics.settling_time.time_s is not None
     )
+    steady_state_errors = tuple(
+        episode.metrics.steady_state_absolute_error_rad
+        for episode in included
+        if episode.metrics.steady_state_absolute_error_rad is not None
+    )
     return ControllerAggregate(
         controller=controller,
         episode_count=len(controller_episodes),
@@ -314,11 +317,12 @@ def _aggregate_controller(
                 for episode in included
             )
         ),
-        mean_steady_state_absolute_error_rad=_mean(
-            tuple(
-                episode.metrics.steady_state_absolute_error_rad
-                for episode in included
-            )
+        mean_measured_steady_state_absolute_error_rad=(
+            _mean(steady_state_errors) if steady_state_errors else None
+        ),
+        measured_steady_state_error_count=len(steady_state_errors),
+        unavailable_steady_state_error_count=(
+            len(included) - len(steady_state_errors)
         ),
         mean_squared_control_effort_nm2_s=_mean(
             tuple(

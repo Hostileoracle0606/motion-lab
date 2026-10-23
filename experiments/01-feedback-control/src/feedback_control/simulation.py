@@ -128,12 +128,12 @@ def run_episode(
         final_time_s=float(data.time),
         final_position_rad=(
             None
-            if termination_reason == "non_finite_state"
+            if "position_rad" in non_finite_state_fields
             else float(data.qpos[0])
         ),
         final_velocity_rad_s=(
             None
-            if termination_reason == "non_finite_state"
+            if "velocity_rad_s" in non_finite_state_fields
             else float(data.qvel[0])
         ),
         terminated=termination_reason is not None,

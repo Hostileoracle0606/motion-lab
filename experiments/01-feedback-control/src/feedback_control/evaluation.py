@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 import math
 from typing import TYPE_CHECKING
 
@@ -22,13 +23,21 @@ if TYPE_CHECKING:
     from feedback_control.simulation import EpisodeResult
 
 
+class MetricAvailability(Enum):
+    """Whether an episode contains enough samples for a windowed metric."""
+
+    MEASURED = "measured"
+    INSUFFICIENT_DURATION = "insufficient_duration"
+
+
 @dataclass(frozen=True)
 class EpisodeMetrics:
     integrated_absolute_error_rad_s: float
     rise_time: TimingResult
     normalized_maximum_overshoot: float
     settling_time: TimingResult
-    steady_state_absolute_error_rad: float
+    steady_state_absolute_error_rad: float | None
+    steady_state_error_availability: MetricAvailability
     squared_control_effort_nm2_s: float
     saturation_fraction: float
 
@@ -75,6 +84,18 @@ def evaluate_episode(
     ):
         raise ValueError("control_interval_s does not match the episode schedule")
     initial_position_rad = positions[0]
+    sampled_duration_s = len(positions) * control_interval_s
+    if thresholds.steady_state_window_s > sampled_duration_s:
+        steady_state_error = None
+        steady_state_availability = MetricAvailability.INSUFFICIENT_DURATION
+    else:
+        steady_state_error = steady_state_absolute_error(
+            positions,
+            target_position_rad,
+            control_interval_s,
+            thresholds.steady_state_window_s,
+        )
+        steady_state_availability = MetricAvailability.MEASURED
     return EpisodeMetrics(
         integrated_absolute_error_rad_s=iae,
         rise_time=rise_time(
@@ -98,12 +119,8 @@ def evaluate_episode(
             velocities,
             thresholds.settling_velocity_tolerance_rad_s,
         ),
-        steady_state_absolute_error_rad=steady_state_absolute_error(
-            positions,
-            target_position_rad,
-            control_interval_s,
-            thresholds.steady_state_window_s,
-        ),
+        steady_state_absolute_error_rad=steady_state_error,
+        steady_state_error_availability=steady_state_availability,
         squared_control_effort_nm2_s=squared_control_effort(
             applied_torques,
             control_interval_s,

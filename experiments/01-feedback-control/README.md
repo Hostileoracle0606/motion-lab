@@ -364,7 +364,7 @@ Each transition has this contract:
 | `raw_torque_nm` | finite number | Controller request before clipping, in N m |
 | `applied_torque_nm` | finite number | Action held for the interval after clipping, in N m |
 | `saturated` | Boolean | Whether clipping changed the controller request |
-| `next_state` | two-scalar object or `null` | Raw position and velocity after the configured simulator advance; `null` only for an explicit non-finite terminal failure |
+| `next_state` | two-field object | Raw position and velocity after the configured simulator advance; only an explicitly named non-finite terminal component is `null` |
 | `non_finite_state_fields` | array of strings | Empty normally; identifies unavailable terminal state components for a `non_finite_state` failure |
 | `terminated` | Boolean | A declared task/failure terminal condition occurred |
 | `truncated` | Boolean | An external limit ended the episode |
@@ -375,9 +375,10 @@ The temporal contract is `(state_t, applied_torque_t) -> next_state_t`:
 after the configured simulator substeps. Consequently,
 `next_state[t] == state[t + 1]`. The final transition uses the runner's raw
 post-step state instead of inventing an extra control interval. A non-finite
-terminal observation cannot be represented as valid JSON numbers, so its
-`next_state` is `null` and `non_finite_state_fields` identifies the affected
-components. Fixed-duration episodes end with `truncated=true`; declared safety
+terminal component cannot be represented as a valid JSON number, so that
+component is `null`, any finite companion component is retained, and
+`non_finite_state_fields` identifies the affected component. Fixed-duration
+episodes end with `truncated=true`; declared safety
 failures end with `terminated=true` and an explicit reason.
 
 The embedded `position_lower_limit_rad` and `position_upper_limit_rad` values
@@ -394,8 +395,9 @@ invalid shapes, types, identities, timing, and terminal boundaries;
 discontinuous state chains; configuration/controller inconsistencies; and
 unexplained state positions or applied actions outside their configured model
 limits. A terminal joint-limit observation is accepted only with the matching
-failure reason; a non-finite terminal state is accepted only as a null state
-with named invalid fields.
+failure reason; a non-finite terminal component is accepted only as a null
+field explicitly named by `non_finite_state_fields`, while finite companion
+components remain numeric.
 
 Programmatic use is deliberately separate from simulation:
 
@@ -564,8 +566,9 @@ and retains the episode in controller aggregates even when it did not settle.
 When the declared joint-limit failure rule is active, the runner terminates at
 the first violating control interval and preserves the raw terminal observation
 with an explicit `joint_limit_violation` reason. When a terminal state becomes
-non-finite, the valid JSON record preserves which components were invalid and
-marks `next_state` unavailable instead of inventing replacement numbers.
+partly or wholly non-finite, the valid JSON record marks only invalid components
+unavailable and preserves finite components instead of inventing replacement
+numbers.
 
 The generated `evaluation.json` contains:
 
@@ -576,12 +579,14 @@ The generated `evaluation.json` contains:
 - one episode entry with status, failure reasons, metrics, configuration
   digest, trajectory path, and trajectory SHA-256;
 - one aggregate per controller, including episode, failure, exclusion,
-  undefined-timing, and unsettled counts.
+  unavailable steady-state, undefined-timing, and unsettled counts.
 
 Aggregate means include every non-excluded episode. Timing metrics separately
 report measured and undefined counts, so an unsettled run cannot disappear
-behind a mean computed only from successful runs. The current protocol defines
-no exclusions.
+behind a mean computed only from successful runs. A steady-state tail metric is
+reported as unavailable when a failure ends the episode before the configured
+window exists; aggregates report measured and unavailable counts separately.
+The current protocol defines no exclusions.
 
 ## Analysis and plots
 
