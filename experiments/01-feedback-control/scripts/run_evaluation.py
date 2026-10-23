@@ -37,7 +37,7 @@ def main() -> None:
     parser.add_argument(
         "--allow-dirty",
         action="store_true",
-        help="run with uncommitted tracked changes and record that state",
+        help="run with uncommitted working-tree changes and record that state",
     )
     arguments = parser.parse_args()
 
@@ -45,7 +45,7 @@ def main() -> None:
     working_tree_dirty = bool(_git_output("status", "--porcelain"))
     if working_tree_dirty and not arguments.allow_dirty:
         parser.error(
-            "tracked changes are uncommitted; commit them or pass --allow-dirty"
+            "working-tree changes are uncommitted; commit them or pass --allow-dirty"
         )
     recorded_command = shlex.join(
         (

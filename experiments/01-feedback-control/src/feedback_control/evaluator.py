@@ -31,7 +31,6 @@ from feedback_control.trajectory import (
 
 
 EVALUATION_SCHEMA_VERSION = 1
-DETERMINISTIC_ABSOLUTE_TOLERANCE = 1e-12
 
 
 @dataclass(frozen=True)
@@ -44,7 +43,6 @@ class EvaluationProvenance:
     python_version: str
     platform: str
     mujoco_version: str
-    deterministic_absolute_tolerance: float
 
 
 @dataclass(frozen=True)
@@ -135,9 +133,6 @@ def run_evaluation(
             python_version=platform.python_version(),
             platform=platform.platform(),
             mujoco_version=version("mujoco"),
-            deterministic_absolute_tolerance=(
-                DETERMINISTIC_ABSOLUTE_TOLERANCE
-            ),
         ),
         episodes=evaluated_episodes,
         aggregates=tuple(
@@ -174,6 +169,9 @@ def _evaluate_plan_case(
         case.controller,
         terminate_on_joint_limit=(
             config.failure_rules.fail_on_joint_limit_violation
+        ),
+        terminate_on_non_finite_state=(
+            config.failure_rules.fail_on_non_finite_state
         ),
     )
     episode_id = f"{case.controller}-{case.scenario.id}-seed-{case.seed}"
@@ -223,6 +221,7 @@ def _evaluate_plan_case(
 def _episode_result(record: TrajectoryRecord) -> EpisodeResult:
     """Reconstruct the metric input from the validated durable record."""
     final_transition = record.transitions[-1]
+    final_state = final_transition.next_state
     return EpisodeResult(
         controller=cast(Literal["p", "pd"], record.controller.name),
         samples=tuple(
@@ -242,11 +241,16 @@ def _episode_result(record: TrajectoryRecord) -> EpisodeResult:
         final_time_s=(
             final_transition.time_s + record.configuration.control_interval_s
         ),
-        final_position_rad=final_transition.next_state.position_rad,
-        final_velocity_rad_s=final_transition.next_state.velocity_rad_s,
+        final_position_rad=(
+            final_state.position_rad if final_state is not None else None
+        ),
+        final_velocity_rad_s=(
+            final_state.velocity_rad_s if final_state is not None else None
+        ),
         terminated=final_transition.terminated,
         truncated=final_transition.truncated,
         termination_reason=cast(str, final_transition.termination_reason),
+        non_finite_state_fields=final_transition.non_finite_state_fields,
     )
 
 

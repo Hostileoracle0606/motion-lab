@@ -35,11 +35,12 @@ class EpisodeResult:
     controller: ControllerName
     samples: tuple[TrajectorySample, ...]
     final_time_s: float
-    final_position_rad: float
-    final_velocity_rad_s: float
+    final_position_rad: float | None
+    final_velocity_rad_s: float | None
     terminated: bool = False
     truncated: bool = True
     termination_reason: str = "time_limit"
+    non_finite_state_fields: tuple[str, ...] = ()
 
 
 def run_episode(
@@ -47,6 +48,7 @@ def run_episode(
     controller: ControllerName,
     *,
     terminate_on_joint_limit: bool = False,
+    terminate_on_non_finite_state: bool = False,
 ) -> EpisodeResult:
     """Run one deterministic observe-control-step episode."""
     validate_experiment_config(config)
@@ -78,6 +80,7 @@ def run_episode(
     )
     joint_min, joint_max = model.jnt_range[0]
     termination_reason: str | None = None
+    non_finite_state_fields: tuple[str, ...] = ()
 
     samples: list[TrajectorySample] = []
     for step_index in range(control_steps):
@@ -104,9 +107,18 @@ def run_episode(
         data.ctrl[0] = output.applied_torque
         for _ in range(simulation_substeps):
             mujoco.mj_step(model, data)
+        non_finite_state_fields = tuple(
+            name
+            for name, value in (
+                ("position_rad", data.qpos[0]),
+                ("velocity_rad_s", data.qvel[0]),
+            )
+            if not math.isfinite(value)
+        )
+        if terminate_on_non_finite_state and non_finite_state_fields:
+            termination_reason = "non_finite_state"
+            break
         if terminate_on_joint_limit and not joint_min <= data.qpos[0] <= joint_max:
-            data.qpos[0] = max(joint_min, min(joint_max, data.qpos[0]))
-            mujoco.mj_forward(model, data)
             termination_reason = "joint_limit_violation"
             break
 
@@ -114,11 +126,24 @@ def run_episode(
         controller=controller,
         samples=tuple(samples),
         final_time_s=float(data.time),
-        final_position_rad=float(data.qpos[0]),
-        final_velocity_rad_s=float(data.qvel[0]),
+        final_position_rad=(
+            None
+            if termination_reason == "non_finite_state"
+            else float(data.qpos[0])
+        ),
+        final_velocity_rad_s=(
+            None
+            if termination_reason == "non_finite_state"
+            else float(data.qvel[0])
+        ),
         terminated=termination_reason is not None,
         truncated=termination_reason is None,
         termination_reason=termination_reason or "time_limit",
+        non_finite_state_fields=(
+            non_finite_state_fields
+            if termination_reason == "non_finite_state"
+            else ()
+        ),
     )
 
 

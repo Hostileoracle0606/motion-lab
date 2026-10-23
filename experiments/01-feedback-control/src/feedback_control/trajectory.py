@@ -14,7 +14,7 @@ from feedback_control.config import ExperimentConfig
 from feedback_control.simulation import EpisodeResult
 
 
-TRAJECTORY_SCHEMA_VERSION = 3
+TRAJECTORY_SCHEMA_VERSION = 4
 ENVIRONMENT_ID = "motion-lab/experiment-01/one-link"
 
 
@@ -68,7 +68,8 @@ class TransitionRecord:
     raw_torque_nm: float
     applied_torque_nm: float
     saturated: bool
-    next_state: StateRecord
+    next_state: StateRecord | None
+    non_finite_state_fields: tuple[str, ...]
     terminated: bool
     truncated: bool
     termination_reason: str | None
@@ -245,32 +246,7 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
             raise ValueError(
                 "times must follow the configured control schedule from zero"
             )
-        numeric_values = {
-            "time_s": transition.time_s,
-            "state.position_rad": transition.state.position_rad,
-            "state.velocity_rad_s": transition.state.velocity_rad_s,
-            "target.position_rad": transition.target.position_rad,
-            "target.velocity_rad_s": transition.target.velocity_rad_s,
-            "raw_torque_nm": transition.raw_torque_nm,
-            "applied_torque_nm": transition.applied_torque_nm,
-            "next_state.position_rad": transition.next_state.position_rad,
-            "next_state.velocity_rad_s": transition.next_state.velocity_rad_s,
-        }
-        for field_name, value in numeric_values.items():
-            _require_finite_number(f"transitions[{index}].{field_name}", value)
-        for state_name, state in (
-            ("state", transition.state),
-            ("next_state", transition.next_state),
-        ):
-            if not (
-                record.configuration.position_lower_limit_rad
-                <= state.position_rad
-                <= record.configuration.position_upper_limit_rad
-            ):
-                raise ValueError(
-                    f"transitions[{index}].{state_name}.position_rad is outside "
-                    "the model position limits"
-                )
+        is_final = index == len(record.transitions) - 1
         is_boundary = transition.terminated or transition.truncated
         if is_boundary:
             if (
@@ -286,6 +262,92 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
                 f"transitions[{index}].termination_reason must be null before "
                 "the terminal boundary"
             )
+        if not isinstance(transition.non_finite_state_fields, tuple) or any(
+            field_name not in {"position_rad", "velocity_rad_s"}
+            for field_name in transition.non_finite_state_fields
+        ):
+            raise ValueError(
+                f"transitions[{index}].non_finite_state_fields is invalid"
+            )
+        if len(set(transition.non_finite_state_fields)) != len(
+            transition.non_finite_state_fields
+        ):
+            raise ValueError(
+                f"transitions[{index}].non_finite_state_fields must be unique"
+            )
+        is_non_finite_boundary = (
+            is_final
+            and transition.terminated
+            and not transition.truncated
+            and transition.termination_reason == "non_finite_state"
+        )
+        if is_non_finite_boundary:
+            if transition.next_state is not None:
+                raise ValueError(
+                    "non-finite terminal transition must not contain next_state"
+                )
+            if not transition.non_finite_state_fields:
+                raise ValueError(
+                    "non-finite terminal transition must identify invalid fields"
+                )
+        elif transition.next_state is None:
+            raise ValueError(
+                f"transitions[{index}].next_state must be an object"
+            )
+        elif transition.non_finite_state_fields:
+            raise ValueError(
+                "non_finite_state_fields requires a non-finite terminal boundary"
+            )
+
+        numeric_values = {
+            "time_s": transition.time_s,
+            "state.position_rad": transition.state.position_rad,
+            "state.velocity_rad_s": transition.state.velocity_rad_s,
+            "target.position_rad": transition.target.position_rad,
+            "target.velocity_rad_s": transition.target.velocity_rad_s,
+            "raw_torque_nm": transition.raw_torque_nm,
+            "applied_torque_nm": transition.applied_torque_nm,
+        }
+        if transition.next_state is not None:
+            numeric_values.update(
+                {
+                    "next_state.position_rad": transition.next_state.position_rad,
+                    "next_state.velocity_rad_s": transition.next_state.velocity_rad_s,
+                }
+            )
+        for field_name, value in numeric_values.items():
+            _require_finite_number(f"transitions[{index}].{field_name}", value)
+        if not (
+            record.configuration.position_lower_limit_rad
+            <= transition.state.position_rad
+            <= record.configuration.position_upper_limit_rad
+        ):
+            raise ValueError(
+                f"transitions[{index}].state.position_rad is outside "
+                "the model position limits"
+            )
+        if transition.next_state is not None:
+            next_state_is_in_range = (
+                record.configuration.position_lower_limit_rad
+                <= transition.next_state.position_rad
+                <= record.configuration.position_upper_limit_rad
+            )
+            is_joint_limit_boundary = (
+                is_final
+                and transition.terminated
+                and not transition.truncated
+                and transition.termination_reason == "joint_limit_violation"
+            )
+            if not next_state_is_in_range and not is_joint_limit_boundary:
+                raise ValueError(
+                    f"transitions[{index}].next_state.position_rad is outside "
+                    "the model position limits"
+                )
+            if is_joint_limit_boundary and next_state_is_in_range:
+                raise ValueError(
+                    "joint-limit terminal transition must preserve the violating "
+                    "next_state"
+                )
         if (
             abs(transition.applied_torque_nm)
             > record.configuration.torque_limit_nm
@@ -451,6 +513,8 @@ def _build_trajectory_record(
                 position_rad=following.position_rad,
                 velocity_rad_s=following.velocity_rad_s,
             )
+        elif result.final_position_rad is None or result.final_velocity_rad_s is None:
+            next_state = None
         else:
             next_state = StateRecord(
                 position_rad=result.final_position_rad,
@@ -473,6 +537,9 @@ def _build_trajectory_record(
                 applied_torque_nm=sample.applied_torque_nm,
                 saturated=sample.saturated,
                 next_state=next_state,
+                non_finite_state_fields=(
+                    result.non_finite_state_fields if is_last else ()
+                ),
                 terminated=is_last and result.terminated,
                 truncated=is_last and result.truncated,
                 termination_reason=result.termination_reason if is_last else None,
@@ -623,6 +690,7 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
                 "applied_torque_nm",
                 "saturated",
                 "next_state",
+                "non_finite_state_fields",
                 "terminated",
                 "truncated",
                 "termination_reason",
@@ -644,9 +712,17 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
                 raw_torque_nm=transition["raw_torque_nm"],
                 applied_torque_nm=transition["applied_torque_nm"],
                 saturated=transition["saturated"],
-                next_state=_state_from_mapping(
-                    transition["next_state"],
-                    f"transitions[{index}].next_state",
+                next_state=(
+                    None
+                    if transition["next_state"] is None
+                    else _state_from_mapping(
+                        transition["next_state"],
+                        f"transitions[{index}].next_state",
+                    )
+                ),
+                non_finite_state_fields=_string_tuple_from_value(
+                    transition["non_finite_state_fields"],
+                    f"transitions[{index}].non_finite_state_fields",
                 ),
                 terminated=transition["terminated"],
                 truncated=transition["truncated"],
@@ -679,6 +755,14 @@ def _state_from_mapping(payload: Any, field_path: str) -> StateRecord:
         position_rad=payload["position_rad"],
         velocity_rad_s=payload["velocity_rad_s"],
     )
+
+
+def _string_tuple_from_value(payload: Any, field_path: str) -> tuple[str, ...]:
+    if not isinstance(payload, list) or not all(
+        isinstance(value, str) for value in payload
+    ):
+        raise ValueError(f"{field_path} must be an array of strings")
+    return tuple(payload)
 
 
 def _require_object(payload: Any, field_path: str) -> dict[str, Any]:

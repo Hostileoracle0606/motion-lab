@@ -330,7 +330,7 @@ those samples and the final simulator state into durable transitions.
 
 ## Transition record
 
-`src/feedback_control/trajectory.py` defines trajectory schema version 3. One
+`src/feedback_control/trajectory.py` defines trajectory schema version 4. One
 UTF-8 JSON file contains one complete episode. `save_trajectory` creates and
 validates a record; `load_trajectory` reconstructs the typed record and runs the
 same validation again. Generated files belong under `results/trajectories/`,
@@ -341,7 +341,7 @@ Episode-level metadata has this contract:
 
 | Field | Type / shape | Meaning |
 | --- | --- | --- |
-| `schema_version` | integer scalar | Exact on-disk contract version; currently `3` |
+| `schema_version` | integer scalar | Exact on-disk contract version; currently `4` |
 | `episode_id` | non-empty string | Stable identity chosen by the collection caller |
 | `seed` | non-negative integer | Declared collection seed, including `0` for the deterministic runner |
 | `code_version` | 40- or 64-character lowercase hexadecimal string | Full Git commit object ID for the source used to collect the episode |
@@ -364,7 +364,8 @@ Each transition has this contract:
 | `raw_torque_nm` | finite number | Controller request before clipping, in N m |
 | `applied_torque_nm` | finite number | Action held for the interval after clipping, in N m |
 | `saturated` | Boolean | Whether clipping changed the controller request |
-| `next_state` | two-scalar object | Position and velocity after the configured simulator advance |
+| `next_state` | two-scalar object or `null` | Raw position and velocity after the configured simulator advance; `null` only for an explicit non-finite terminal failure |
+| `non_finite_state_fields` | array of strings | Empty normally; identifies unavailable terminal state components for a `non_finite_state` failure |
 | `terminated` | Boolean | A declared task/failure terminal condition occurred |
 | `truncated` | Boolean | An external limit ended the episode |
 | `termination_reason` | string or `null` | Boundary reason; `null` before the final transition |
@@ -372,22 +373,29 @@ Each transition has this contract:
 The temporal contract is `(state_t, applied_torque_t) -> next_state_t`:
 `state` is observed before the action is applied, and `next_state` is observed
 after the configured simulator substeps. Consequently,
-`next_state[t] == state[t + 1]`. The final transition uses the runner's final
-state instead of inventing an extra control interval. The current runner always
-reaches its fixed time limit, so only the last transition has
-`truncated=true` and `termination_reason="time_limit"`.
+`next_state[t] == state[t + 1]`. The final transition uses the runner's raw
+post-step state instead of inventing an extra control interval. A non-finite
+terminal observation cannot be represented as valid JSON numbers, so its
+`next_state` is `null` and `non_finite_state_fields` identifies the affected
+components. Fixed-duration episodes end with `truncated=true`; declared safety
+failures end with `terminated=true` and an explicit reason.
 
 The embedded `position_lower_limit_rad` and `position_upper_limit_rad` values
 are finite scalar radians copied from the versioned MuJoCo model. They are part
-of the configuration digest, and every recorded `state` and `next_state`
-position must remain inside their inclusive range. `code_version` identifies
-committed source; callers should collect from that exact clean revision so the
-identifier does not conceal uncommitted changes.
+of the configuration digest. Every action-bearing `state` must remain inside
+the inclusive range. A finite `next_state` must also remain inside unless the
+final transition explicitly records the raw observation that caused a
+`joint_limit_violation`. `code_version` identifies committed source; callers
+should collect from that exact clean revision so the identifier does not
+conceal uncommitted changes.
 
 Validation rejects incompatible or incomplete schemas; non-finite numbers;
 invalid shapes, types, identities, timing, and terminal boundaries;
 discontinuous state chains; configuration/controller inconsistencies; and
-state positions or applied actions outside their configured model limits.
+unexplained state positions or applied actions outside their configured model
+limits. A terminal joint-limit observation is accepted only with the matching
+failure reason; a non-finite terminal state is accepted only as a null state
+with named invalid fields.
 
 Programmatic use is deliberately separate from simulation:
 
@@ -554,16 +562,17 @@ it initializes the declared state, runs the controller, saves and reloads the
 trajectory through schema validation, evaluates the common metric boundary,
 and retains the episode in controller aggregates even when it did not settle.
 When the declared joint-limit failure rule is active, the runner terminates at
-the first violating control interval and projects the terminal position to the
-crossed bound before persistence. The valid record retains the action, terminal
-velocity, and explicit `joint_limit_violation` reason without storing an
-out-of-contract position as trusted evidence.
+the first violating control interval and preserves the raw terminal observation
+with an explicit `joint_limit_violation` reason. When a terminal state becomes
+non-finite, the valid JSON record preserves which components were invalid and
+marks `next_state` unavailable instead of inventing replacement numbers.
 
 The generated `evaluation.json` contains:
 
-- the full source commit and whether tracked files were dirty;
+- the full source commit and whether the working tree was dirty;
 - the evaluation-config SHA-256, Python, platform, and MuJoCo versions;
-- the exact command and deterministic comparison tolerance;
+- the exact command; deterministic reruns currently require byte-identical
+  JSON output, an exact zero-tolerance contract;
 - one episode entry with status, failure reasons, metrics, configuration
   digest, trajectory path, and trajectory SHA-256;
 - one aggregate per controller, including episode, failure, exclusion,

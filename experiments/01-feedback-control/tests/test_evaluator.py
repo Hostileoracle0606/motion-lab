@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 from feedback_control.evaluator import run_evaluation
+from feedback_control.simulation import EpisodeResult, TrajectorySample
 from feedback_control.trajectory import load_trajectory
 
 
@@ -159,6 +160,68 @@ def test_joint_limit_failure_is_persisted_and_retained(tmp_path: Path) -> None:
     assert trajectory.transitions[-1].terminated is True
     assert trajectory.transitions[-1].truncated is False
     assert trajectory.transitions[-1].termination_reason == "joint_limit_violation"
+    assert (
+        trajectory.transitions[-1].next_state.position_rad
+        > trajectory.configuration.position_upper_limit_rad
+    )
+
+
+def test_non_finite_failure_is_persisted_and_retained(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = _write_evaluation_config(tmp_path)
+    output_dir = tmp_path / "non-finite-output"
+
+    def non_finite_episode(config, controller, **_options):
+        return EpisodeResult(
+            controller=controller,
+            samples=(
+                TrajectorySample(
+                    step_index=0,
+                    time_s=0.0,
+                    position_rad=config.episode.start_position_rad,
+                    velocity_rad_s=config.episode.initial_velocity_rad_s,
+                    target_position_rad=config.episode.target_position_rad,
+                    target_velocity_rad_s=config.episode.target_velocity_rad_s,
+                    raw_torque_nm=0.0,
+                    applied_torque_nm=0.0,
+                    saturated=False,
+                ),
+            ),
+            final_time_s=config.episode.control_interval_s,
+            final_position_rad=None,
+            final_velocity_rad_s=None,
+            terminated=True,
+            truncated=False,
+            termination_reason="non_finite_state",
+            non_finite_state_fields=("position_rad",),
+        )
+
+    monkeypatch.setattr(
+        "feedback_control.evaluator.run_episode",
+        non_finite_episode,
+    )
+    result = run_evaluation(
+        config_path=config_path,
+        output_dir=output_dir,
+        code_version=SOURCE_COMMIT,
+        command=COMMAND,
+    )
+
+    assert len(result.episodes) == 8
+    assert all(
+        "non_finite_state" in episode.failure_reasons
+        for episode in result.episodes
+    )
+    assert all(episode.included_in_aggregate for episode in result.episodes)
+    trajectory = load_trajectory(
+        output_dir / result.episodes[0].trajectory_file
+    )
+    final_transition = trajectory.transitions[-1]
+    assert final_transition.next_state is None
+    assert final_transition.non_finite_state_fields == ("position_rad",)
+    assert final_transition.termination_reason == "non_finite_state"
 
 
 def test_same_command_regenerates_identical_output(tmp_path: Path) -> None:
