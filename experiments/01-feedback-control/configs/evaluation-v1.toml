@@ -1,0 +1,62 @@
+schema_version = 1
+seeds = [0]
+
+[model]
+path = "../models/one_link.xml"
+keyframe = "start"
+simulation_timestep_s = 0.002
+
+[episode]
+duration_s = 4.0
+control_interval_s = 0.010
+target_velocity_rad_s = 0.0
+torque_limit_nm = 3.0
+
+[controllers.p]
+kp = 2.0
+
+[controllers.pd]
+kp = 2.0
+kd = 1.3
+
+[metrics]
+rise_lower_fraction = 0.10
+rise_upper_fraction = 0.90
+settling_position_tolerance_rad = 0.05
+settling_velocity_tolerance_rad_s = 0.10
+steady_state_window_s = 0.50
+minimum_command_magnitude_rad = 0.000001
+
+[noise]
+position_std_rad = 0.0
+velocity_std_rad_s = 0.0
+action_std_nm = 0.0
+
+[failure_rules]
+fail_on_non_finite_state = true
+fail_on_joint_limit_violation = true
+fail_if_not_settled = true
+
+[[scenarios]]
+id = "negative-to-positive-wide"
+start_position_rad = -1.047198
+target_position_rad = 1.047198
+initial_velocity_rad_s = 0.0
+
+[[scenarios]]
+id = "positive-to-negative-wide"
+start_position_rad = 1.047198
+target_position_rad = -1.047198
+initial_velocity_rad_s = 0.0
+
+[[scenarios]]
+id = "negative-to-positive-narrow"
+start_position_rad = -0.523599
+target_position_rad = 0.523599
+initial_velocity_rad_s = 0.0
+
+[[scenarios]]
+id = "positive-to-negative-narrow"
+start_position_rad = 0.523599
+target_position_rad = -0.523599
+initial_velocity_rad_s = 0.0
