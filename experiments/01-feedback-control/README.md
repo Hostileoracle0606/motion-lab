@@ -477,6 +477,13 @@ is not counted as an additional interval. It validates that the target,
 positions, and control interval are finite, requires at least one sample, and
 reports the result in radian-seconds.
 
+The episode-level `evaluate_episode` boundary applies that pure metric to the
+pre-action samples in one `EpisodeResult`. It requires a non-empty,
+static-target episode and verifies that the declared control interval matches
+every recorded interval, including the final sample-to-terminal-state advance.
+The terminal state checks the final interval duration but does not contribute a
+second position-error sample.
+
 ### Control effort
 
 Use at least one declared action-based measure, such as:
