@@ -1,8 +1,9 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
-from feedback_control.config import load_evaluation_config
+from feedback_control.config import build_evaluation_plan, load_evaluation_config
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "evaluation-v1.toml"
@@ -49,6 +50,40 @@ def test_evaluation_config_declares_shared_scenarios_in_both_directions() -> Non
     assert config.failure_rules.fail_on_non_finite_state
     assert config.failure_rules.fail_on_joint_limit_violation
     assert config.failure_rules.fail_if_not_settled
+
+
+def test_evaluation_plan_pairs_both_controllers_with_identical_cases() -> None:
+    config = replace(load_evaluation_config(CONFIG_PATH), seeds=(0, 7))
+
+    plan = build_evaluation_plan(config)
+    cases_by_controller = {
+        controller: [
+            (
+                case.scenario.id,
+                case.scenario.start_position_rad,
+                case.scenario.target_position_rad,
+                case.seed,
+            )
+            for case in plan
+            if case.controller == controller
+        ]
+        for controller in ("p", "pd")
+    }
+
+    assert tuple(case.controller for case in plan[:8]) == ("p",) * 8
+    assert tuple(case.controller for case in plan[8:]) == ("pd",) * 8
+    assert cases_by_controller["p"] == cases_by_controller["pd"]
+    assert [case.scenario for case in plan[:8]] == [
+        case.scenario for case in plan[8:]
+    ]
+
+
+def test_evaluation_plan_rejects_invalid_shared_suite() -> None:
+    config = load_evaluation_config(CONFIG_PATH)
+    invalid = replace(config, scenarios=(config.scenarios[0],))
+
+    with pytest.raises(ValueError, match="positive and negative command directions"):
+        build_evaluation_plan(invalid)
 
 
 def test_evaluation_config_rejects_degenerate_scenario(tmp_path: Path) -> None:
