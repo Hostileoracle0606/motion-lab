@@ -368,6 +368,12 @@ IAE = \sum_t |q^*-q_t|\Delta t
 
 This gives a single measure of error accumulated over the episode.
 
+The implemented `integrated_absolute_error` metric consumes one pre-action
+position sample for every action-bearing control interval. The terminal state
+is not counted as an additional interval. It validates that the target,
+positions, and control interval are finite, requires at least one sample, and
+reports the result in radian-seconds.
+
 ### Control effort
 
 Use at least one declared action-based measure, such as:
