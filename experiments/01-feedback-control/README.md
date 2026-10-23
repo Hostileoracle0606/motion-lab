@@ -314,7 +314,7 @@ those samples and the final simulator state into durable transitions.
 
 ## Transition record
 
-`src/feedback_control/trajectory.py` defines trajectory schema version 1. One
+`src/feedback_control/trajectory.py` defines trajectory schema version 2. One
 UTF-8 JSON file contains one complete episode. `save_trajectory` creates and
 validates a record; `load_trajectory` reconstructs the typed record and runs the
 same validation again. Generated files belong under `results/trajectories/`,
@@ -325,14 +325,15 @@ Episode-level metadata has this contract:
 
 | Field | Type / shape | Meaning |
 | --- | --- | --- |
-| `schema_version` | integer scalar | Exact on-disk contract version; currently `1` |
+| `schema_version` | integer scalar | Exact on-disk contract version; currently `2` |
 | `episode_id` | non-empty string | Stable identity chosen by the collection caller |
 | `seed` | non-negative integer | Declared collection seed, including `0` for the deterministic runner |
+| `code_version` | 40- or 64-character lowercase hexadecimal string | Full Git commit object ID for the source used to collect the episode |
 | `environment_id` | string | `motion-lab/experiment-01/one-link` |
 | `environment_version` | 64-character SHA-256 | Digest of the MuJoCo XML bytes |
 | `mujoco_version` | string | Installed MuJoCo package version |
 | `config_digest` | 64-character SHA-256 | Digest of the canonical embedded configuration |
-| `configuration` | object | Model identity, timing, state/target, limit, and both controllers' gains |
+| `configuration` | object | Model identity, timing, state/target, explicit position and torque limits, and both controllers' gains |
 | `controller` | object | Selected controller name and its `kp`/`kd` gains |
 | `transitions` | ordered array | One object for every control interval |
 
@@ -360,25 +361,37 @@ state instead of inventing an extra control interval. The current runner always
 reaches its fixed time limit, so only the last transition has
 `truncated=true` and `termination_reason="time_limit"`.
 
+The embedded `position_lower_limit_rad` and `position_upper_limit_rad` values
+are finite scalar radians copied from the versioned MuJoCo model. They are part
+of the configuration digest, and every recorded `state` and `next_state`
+position must remain inside their inclusive range. `code_version` identifies
+committed source; callers should collect from that exact clean revision so the
+identifier does not conceal uncommitted changes.
+
 Validation rejects incompatible or incomplete schemas; non-finite numbers;
 invalid shapes, types, identities, timing, and terminal boundaries;
 discontinuous state chains; configuration/controller inconsistencies; and
-applied actions outside or inconsistent with the configured torque limit.
+state positions or applied actions outside their configured model limits.
 
 Programmatic use is deliberately separate from simulation:
 
 ```python
 from pathlib import Path
+import subprocess
 
 from feedback_control.trajectory import load_trajectory, save_trajectory
 
 trajectory_path = Path(
     "experiments/01-feedback-control/results/trajectories/p-seed-0.json"
 )
+source_commit = subprocess.check_output(
+    ["git", "rev-parse", "HEAD"], text=True
+).strip()
 saved = save_trajectory(
     trajectory_path,
     episode_id="p-seed-0",
     seed=0,
+    code_version=source_commit,
     result=result,
     config=config,
 )

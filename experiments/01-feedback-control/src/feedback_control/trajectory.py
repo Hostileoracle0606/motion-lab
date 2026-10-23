@@ -8,11 +8,13 @@ import math
 from pathlib import Path
 from typing import Any
 
+import mujoco
+
 from feedback_control.config import ExperimentConfig
 from feedback_control.simulation import EpisodeResult
 
 
-TRAJECTORY_SCHEMA_VERSION = 1
+TRAJECTORY_SCHEMA_VERSION = 2
 ENVIRONMENT_ID = "motion-lab/experiment-01/one-link"
 
 
@@ -43,6 +45,8 @@ class ConfigurationProvenance:
     simulation_timestep_s: float
     episode_duration_s: float
     control_interval_s: float
+    position_lower_limit_rad: float
+    position_upper_limit_rad: float
     start_position_rad: float
     target_position_rad: float
     target_velocity_rad_s: float
@@ -76,6 +80,7 @@ class TrajectoryRecord:
     schema_version: int
     episode_id: str
     seed: int
+    code_version: str
     environment_id: str
     environment_version: str
     mujoco_version: str
@@ -90,6 +95,7 @@ def save_trajectory(
     *,
     episode_id: str,
     seed: int,
+    code_version: str,
     result: EpisodeResult,
     config: ExperimentConfig,
 ) -> TrajectoryRecord:
@@ -97,6 +103,7 @@ def save_trajectory(
     record = _build_trajectory_record(
         episode_id=episode_id,
         seed=seed,
+        code_version=code_version,
         result=result,
         config=config,
     )
@@ -131,6 +138,10 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
         raise ValueError("episode_id must not be empty")
     if type(record.seed) is not int or record.seed < 0:
         raise ValueError("seed must be a non-negative integer")
+    if not _is_git_object_id(record.code_version):
+        raise ValueError(
+            "code_version must be a full lowercase Git commit object ID"
+        )
     if record.environment_id != ENVIRONMENT_ID:
         raise ValueError(f"unsupported environment_id: {record.environment_id!r}")
     if not isinstance(record.mujoco_version, str) or not record.mujoco_version:
@@ -235,6 +246,19 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
         }
         for field_name, value in numeric_values.items():
             _require_finite_number(f"transitions[{index}].{field_name}", value)
+        for state_name, state in (
+            ("state", transition.state),
+            ("next_state", transition.next_state),
+        ):
+            if not (
+                record.configuration.position_lower_limit_rad
+                <= state.position_rad
+                <= record.configuration.position_upper_limit_rad
+            ):
+                raise ValueError(
+                    f"transitions[{index}].{state_name}.position_rad is outside "
+                    "the model position limits"
+                )
         is_boundary = transition.terminated or transition.truncated
         if is_boundary:
             if (
@@ -301,6 +325,8 @@ def _validate_configuration(configuration: ConfigurationProvenance) -> None:
         "simulation_timestep_s": configuration.simulation_timestep_s,
         "episode_duration_s": configuration.episode_duration_s,
         "control_interval_s": configuration.control_interval_s,
+        "position_lower_limit_rad": configuration.position_lower_limit_rad,
+        "position_upper_limit_rad": configuration.position_upper_limit_rad,
         "start_position_rad": configuration.start_position_rad,
         "target_position_rad": configuration.target_position_rad,
         "target_velocity_rad_s": configuration.target_velocity_rad_s,
@@ -320,6 +346,23 @@ def _validate_configuration(configuration: ConfigurationProvenance) -> None:
     ):
         if numeric_values[field_name] <= 0:
             raise ValueError(f"configuration.{field_name} must be greater than zero")
+    if (
+        configuration.position_lower_limit_rad
+        >= configuration.position_upper_limit_rad
+    ):
+        raise ValueError(
+            "configuration position lower limit must be less than upper limit"
+        )
+    for field_name in ("start_position_rad", "target_position_rad"):
+        value = numeric_values[field_name]
+        if not (
+            configuration.position_lower_limit_rad
+            <= value
+            <= configuration.position_upper_limit_rad
+        ):
+            raise ValueError(
+                f"configuration.{field_name} is outside the model position limits"
+            )
     for field_name in ("p_kp", "pd_kp", "pd_kd"):
         if numeric_values[field_name] < 0:
             raise ValueError(f"configuration.{field_name} must be non-negative")
@@ -358,6 +401,14 @@ def _is_sha256(value: Any) -> bool:
     )
 
 
+def _is_git_object_id(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) in (40, 64)
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def _states_match(left: StateRecord, right: StateRecord) -> bool:
     return left == right
 
@@ -366,6 +417,7 @@ def _build_trajectory_record(
     *,
     episode_id: str,
     seed: int,
+    code_version: str,
     result: EpisodeResult,
     config: ExperimentConfig,
 ) -> TrajectoryRecord:
@@ -410,6 +462,7 @@ def _build_trajectory_record(
         schema_version=TRAJECTORY_SCHEMA_VERSION,
         episode_id=episode_id,
         seed=seed,
+        code_version=code_version,
         environment_id=ENVIRONMENT_ID,
         environment_version=configuration.model_sha256,
         mujoco_version=version("mujoco"),
@@ -425,6 +478,8 @@ def _build_trajectory_record(
 
 
 def _configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenance:
+    model = mujoco.MjModel.from_xml_path(str(config.model.path))
+    position_lower_limit_rad, position_upper_limit_rad = model.jnt_range[0]
     return ConfigurationProvenance(
         model_file=config.model.path.name,
         model_sha256=hashlib.sha256(config.model.path.read_bytes()).hexdigest(),
@@ -432,6 +487,8 @@ def _configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenan
         simulation_timestep_s=config.model.simulation_timestep_s,
         episode_duration_s=config.episode.duration_s,
         control_interval_s=config.episode.control_interval_s,
+        position_lower_limit_rad=float(position_lower_limit_rad),
+        position_upper_limit_rad=float(position_upper_limit_rad),
         start_position_rad=config.episode.start_position_rad,
         target_position_rad=config.episode.target_position_rad,
         target_velocity_rad_s=config.episode.target_velocity_rad_s,
@@ -460,6 +517,7 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
             "schema_version",
             "episode_id",
             "seed",
+            "code_version",
             "environment_id",
             "environment_version",
             "mujoco_version",
@@ -482,6 +540,8 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
             "simulation_timestep_s",
             "episode_duration_s",
             "control_interval_s",
+            "position_lower_limit_rad",
+            "position_upper_limit_rad",
             "start_position_rad",
             "target_position_rad",
             "target_velocity_rad_s",
@@ -499,6 +559,8 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
         simulation_timestep_s=configuration_payload["simulation_timestep_s"],
         episode_duration_s=configuration_payload["episode_duration_s"],
         control_interval_s=configuration_payload["control_interval_s"],
+        position_lower_limit_rad=configuration_payload["position_lower_limit_rad"],
+        position_upper_limit_rad=configuration_payload["position_upper_limit_rad"],
         start_position_rad=configuration_payload["start_position_rad"],
         target_position_rad=configuration_payload["target_position_rad"],
         target_velocity_rad_s=configuration_payload["target_velocity_rad_s"],
@@ -572,6 +634,7 @@ def _record_from_mapping(payload: Any) -> TrajectoryRecord:
         schema_version=payload["schema_version"],
         episode_id=payload["episode_id"],
         seed=payload["seed"],
+        code_version=payload["code_version"],
         environment_id=payload["environment_id"],
         environment_version=payload["environment_version"],
         mujoco_version=payload["mujoco_version"],

@@ -1,4 +1,5 @@
 from dataclasses import replace
+from functools import partial
 import json
 from pathlib import Path
 
@@ -6,10 +7,15 @@ import pytest
 
 from feedback_control.config import ExperimentConfig, load_experiment_config
 from feedback_control.simulation import run_episode
-from feedback_control.trajectory import load_trajectory, save_trajectory
+from feedback_control.trajectory import (
+    load_trajectory,
+    save_trajectory as _save_trajectory,
+)
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "demo.toml"
+SOURCE_COMMIT = "a" * 40
+save_trajectory = partial(_save_trajectory, code_version=SOURCE_COMMIT)
 
 
 @pytest.fixture(scope="module")
@@ -40,6 +46,9 @@ def test_saved_episode_round_trip_preserves_transitions(
     assert loaded == saved
     assert loaded.episode_id == "pd-smoke-seed-7"
     assert loaded.seed == 7
+    assert loaded.code_version == SOURCE_COMMIT
+    assert loaded.configuration.position_lower_limit_rad == pytest.approx(-1.570796)
+    assert loaded.configuration.position_upper_limit_rad == pytest.approx(1.570796)
     assert loaded.controller.name == "pd"
     assert loaded.controller.kp == short_config.pd.kp
     assert loaded.controller.kd == short_config.pd.kd
@@ -80,6 +89,57 @@ def test_loading_rejects_a_missing_required_field(
 
     with pytest.raises(ValueError, match="missing required field: config_digest"):
         load_trajectory(output_path)
+
+
+def test_loading_rejects_missing_code_version(
+    tmp_path: Path,
+    config: ExperimentConfig,
+) -> None:
+    short_config = replace(
+        config,
+        episode=replace(config.episode, duration_s=0.01),
+    )
+    result = run_episode(short_config, "p")
+    output_path = tmp_path / "missing-code-version.json"
+    save_trajectory(
+        output_path,
+        episode_id="p-smoke-seed-0",
+        seed=0,
+        result=result,
+        config=short_config,
+    )
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    del payload["code_version"]
+    output_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing required field: code_version"):
+        load_trajectory(output_path)
+
+
+@pytest.mark.parametrize("code_version", ("main", "A" * 40, "a" * 39))
+def test_saving_rejects_invalid_code_version(
+    tmp_path: Path,
+    config: ExperimentConfig,
+    code_version: str,
+) -> None:
+    short_config = replace(
+        config,
+        episode=replace(config.episode, duration_s=0.01),
+    )
+    result = run_episode(short_config, "p")
+
+    with pytest.raises(
+        ValueError,
+        match="code_version must be a full lowercase Git commit object ID",
+    ):
+        _save_trajectory(
+            tmp_path / "invalid-code-version.json",
+            episode_id="p-smoke-seed-0",
+            seed=0,
+            code_version=code_version,
+            result=result,
+            config=short_config,
+        )
 
 
 def test_loading_rejects_a_missing_transition_field(
@@ -128,10 +188,10 @@ def test_loading_rejects_an_unsupported_schema_version(
         config=short_config,
     )
     payload = json.loads(output_path.read_text(encoding="utf-8"))
-    payload["schema_version"] = 2
+    payload["schema_version"] = 1
     output_path.write_text(json.dumps(payload), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="unsupported trajectory schema version: 2"):
+    with pytest.raises(ValueError, match="unsupported trajectory schema version: 1"):
         load_trajectory(output_path)
 
 
@@ -361,6 +421,37 @@ def test_loading_rejects_non_finite_state(
     with pytest.raises(
         ValueError,
         match=r"transitions\[0\]\.state\.position_rad must be finite",
+    ):
+        load_trajectory(output_path)
+
+
+@pytest.mark.parametrize("state_name", ("state", "next_state"))
+def test_loading_rejects_position_outside_model_limits(
+    tmp_path: Path,
+    config: ExperimentConfig,
+    state_name: str,
+) -> None:
+    short_config = replace(
+        config,
+        episode=replace(config.episode, duration_s=0.01),
+    )
+    result = run_episode(short_config, "p")
+    output_path = tmp_path / f"out-of-position-limit-{state_name}.json"
+    save_trajectory(
+        output_path,
+        episode_id="p-smoke-seed-0",
+        seed=0,
+        result=result,
+        config=short_config,
+    )
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    payload["transitions"][0][state_name]["position_rad"] = 100.0
+    output_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match=rf"transitions\[0\]\.{state_name}\.position_rad is outside "
+        "the model position limits",
     ):
         load_trajectory(output_path)
 
