@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import math
 from pathlib import Path
 import tomllib
+from typing import Literal
 
 import mujoco
 
@@ -91,6 +92,16 @@ class EvaluationConfig:
     noise: NoiseConfig
     failure_rules: FailureRules
     scenarios: tuple[EvaluationScenario, ...]
+
+
+EvaluationControllerName = Literal["p", "pd"]
+
+
+@dataclass(frozen=True)
+class EvaluationPlanCase:
+    controller: EvaluationControllerName
+    scenario: EvaluationScenario
+    seed: int
 
 
 def load_experiment_config(path: Path) -> ExperimentConfig:
@@ -204,6 +215,24 @@ def load_evaluation_config(path: Path) -> EvaluationConfig:
     )
     validate_evaluation_config(config)
     return config
+
+
+def build_evaluation_plan(
+    config: EvaluationConfig,
+) -> tuple[EvaluationPlanCase, ...]:
+    """Pair both controllers with one validated ordered scenario/seed suite."""
+    validate_evaluation_config(config)
+    controllers: tuple[EvaluationControllerName, ...] = ("p", "pd")
+    return tuple(
+        EvaluationPlanCase(
+            controller=controller,
+            scenario=scenario,
+            seed=seed,
+        )
+        for controller in controllers
+        for scenario in config.scenarios
+        for seed in config.seeds
+    )
 
 
 def validate_evaluation_config(config: EvaluationConfig) -> None:
