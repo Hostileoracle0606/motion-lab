@@ -1,0 +1,299 @@
+{
+  "aggregates": [
+    {
+      "controller": "p",
+      "episode_count": 4,
+      "excluded_episode_count": 0,
+      "failed_episode_count": 4,
+      "included_episode_count": 4,
+      "mean_integrated_absolute_error_rad_s": 1.5313148796525438,
+      "mean_measured_rise_time_s": 0.37,
+      "mean_measured_settling_time_s": null,
+      "mean_measured_steady_state_absolute_error_rad": 0.5813407074263834,
+      "mean_normalized_maximum_overshoot": 0.5690929917081207,
+      "mean_saturation_fraction": 0.22142857142857142,
+      "mean_squared_control_effort_nm2_s": 5.014641957712674,
+      "measured_rise_time_count": 4,
+      "measured_settling_time_count": 0,
+      "measured_steady_state_error_count": 4,
+      "unavailable_steady_state_error_count": 0,
+      "undefined_rise_time_count": 0,
+      "unsettled_episode_count": 4
+    },
+    {
+      "controller": "pd",
+      "episode_count": 4,
+      "excluded_episode_count": 0,
+      "failed_episode_count": 0,
+      "included_episode_count": 4,
+      "mean_integrated_absolute_error_rad_s": 1.0719877739902808,
+      "mean_measured_rise_time_s": 1.1300000000000001,
+      "mean_measured_settling_time_s": 1.845,
+      "mean_measured_steady_state_absolute_error_rad": 0.00026857317466131404,
+      "mean_normalized_maximum_overshoot": 0.0,
+      "mean_saturation_fraction": 0.00875,
+      "mean_squared_control_effort_nm2_s": 0.9087636610618257,
+      "measured_rise_time_count": 4,
+      "measured_settling_time_count": 4,
+      "measured_steady_state_error_count": 4,
+      "unavailable_steady_state_error_count": 0,
+      "undefined_rise_time_count": 0,
+      "unsettled_episode_count": 0
+    }
+  ],
+  "episodes": [
+    {
+      "config_digest": "4a8dd164107704dccda75ccdeb25e287065aab052f1bbadf8be577d2df52eba9",
+      "controller": "p",
+      "episode_id": "p-negative-to-positive-wide-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [
+        "joint_limit_violation",
+        "not_settled"
+      ],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 0.8509510805457188,
+        "normalized_maximum_overshoot": 0.22626360212813101,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 0.38
+        },
+        "saturation_fraction": 0.44285714285714284,
+        "settling_time": {
+          "outcome": "not_settled",
+          "time_s": null
+        },
+        "squared_control_effort_nm2_s": 3.8160638277344376,
+        "steady_state_absolute_error_rad": 0.8956936512285334,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "negative-to-positive-wide",
+      "seed": 0,
+      "status": "failed",
+      "trajectory_file": "trajectories/0000.json",
+      "trajectory_sha256": "640078b5c53ef82a42d50109151008d3ea316a6514c0b90b54e57f4fb615e69b"
+    },
+    {
+      "config_digest": "bb3aae5da55011f32bfb03c7a7decf5d8315458080478dd49d0b659c249f139f",
+      "controller": "p",
+      "episode_id": "p-positive-to-negative-wide-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [
+        "joint_limit_violation",
+        "not_settled"
+      ],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 0.8509510805457188,
+        "normalized_maximum_overshoot": 0.22626360212813101,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 0.38
+        },
+        "saturation_fraction": 0.44285714285714284,
+        "settling_time": {
+          "outcome": "not_settled",
+          "time_s": null
+        },
+        "squared_control_effort_nm2_s": 3.8160638277344376,
+        "steady_state_absolute_error_rad": 0.8956936512285334,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "positive-to-negative-wide",
+      "seed": 0,
+      "status": "failed",
+      "trajectory_file": "trajectories/0001.json",
+      "trajectory_sha256": "60b02e3d8f5564d7f511c69eea068aa3737a61ef3117d8d83535462d9f57cbd4"
+    },
+    {
+      "config_digest": "be25c7ad9c08b564816607bf9a525bcdc34884fa622eea431ca291cbc09bb962",
+      "controller": "p",
+      "episode_id": "p-negative-to-positive-narrow-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [
+        "not_settled"
+      ],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 2.2116786787593687,
+        "normalized_maximum_overshoot": 0.9119223812881104,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 0.36
+        },
+        "saturation_fraction": 0.0,
+        "settling_time": {
+          "outcome": "not_settled",
+          "time_s": null
+        },
+        "squared_control_effort_nm2_s": 6.21322008769091,
+        "steady_state_absolute_error_rad": 0.26698776362423343,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "negative-to-positive-narrow",
+      "seed": 0,
+      "status": "failed",
+      "trajectory_file": "trajectories/0002.json",
+      "trajectory_sha256": "1eb61116e5d2737f3375a79d58580fbce6605906bd52c94588d8e24280a2a041"
+    },
+    {
+      "config_digest": "1c87b51d4b75524e6ffcf9f05abfc48e882a06b23d54de94034a9016fa917218",
+      "controller": "p",
+      "episode_id": "p-positive-to-negative-narrow-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [
+        "not_settled"
+      ],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 2.2116786787593687,
+        "normalized_maximum_overshoot": 0.9119223812881104,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 0.36
+        },
+        "saturation_fraction": 0.0,
+        "settling_time": {
+          "outcome": "not_settled",
+          "time_s": null
+        },
+        "squared_control_effort_nm2_s": 6.21322008769091,
+        "steady_state_absolute_error_rad": 0.26698776362423343,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "positive-to-negative-narrow",
+      "seed": 0,
+      "status": "failed",
+      "trajectory_file": "trajectories/0003.json",
+      "trajectory_sha256": "fe8559ea44c3f35caca83463eb08dd909b13dc951cccc7899118d9184e09258e"
+    },
+    {
+      "config_digest": "4a8dd164107704dccda75ccdeb25e287065aab052f1bbadf8be577d2df52eba9",
+      "controller": "pd",
+      "episode_id": "pd-negative-to-positive-wide-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 1.4371449659817221,
+        "normalized_maximum_overshoot": 0.0,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 1.1300000000000001
+        },
+        "saturation_fraction": 0.0175,
+        "settling_time": {
+          "outcome": "measured",
+          "time_s": 1.99
+        },
+        "squared_control_effort_nm2_s": 1.4241150710857275,
+        "steady_state_absolute_error_rad": 0.00036202589359615625,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "negative-to-positive-wide",
+      "seed": 0,
+      "status": "passed",
+      "trajectory_file": "trajectories/0004.json",
+      "trajectory_sha256": "6e819b0782bb6b14dcc4185a39b86cbfd54f8729ef0e639bdb9c3c46e36f309d"
+    },
+    {
+      "config_digest": "bb3aae5da55011f32bfb03c7a7decf5d8315458080478dd49d0b659c249f139f",
+      "controller": "pd",
+      "episode_id": "pd-positive-to-negative-wide-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 1.4371449659817221,
+        "normalized_maximum_overshoot": 0.0,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 1.1300000000000001
+        },
+        "saturation_fraction": 0.0175,
+        "settling_time": {
+          "outcome": "measured",
+          "time_s": 1.99
+        },
+        "squared_control_effort_nm2_s": 1.4241150710857275,
+        "steady_state_absolute_error_rad": 0.00036202589359615625,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "positive-to-negative-wide",
+      "seed": 0,
+      "status": "passed",
+      "trajectory_file": "trajectories/0005.json",
+      "trajectory_sha256": "7348f0cb9468b0e6c6c6cfade26632b27b7138d7ec55a69c90229775f09563fa"
+    },
+    {
+      "config_digest": "be25c7ad9c08b564816607bf9a525bcdc34884fa622eea431ca291cbc09bb962",
+      "controller": "pd",
+      "episode_id": "pd-negative-to-positive-narrow-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 0.7068305819988396,
+        "normalized_maximum_overshoot": 0.0,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 1.1300000000000001
+        },
+        "saturation_fraction": 0.0,
+        "settling_time": {
+          "outcome": "measured",
+          "time_s": 1.7
+        },
+        "squared_control_effort_nm2_s": 0.3934122510379239,
+        "steady_state_absolute_error_rad": 0.00017512045572647182,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "negative-to-positive-narrow",
+      "seed": 0,
+      "status": "passed",
+      "trajectory_file": "trajectories/0006.json",
+      "trajectory_sha256": "f68f050531e873348e8888935d02c332a2fe6d7b4ac7fae54258a36869f3b872"
+    },
+    {
+      "config_digest": "1c87b51d4b75524e6ffcf9f05abfc48e882a06b23d54de94034a9016fa917218",
+      "controller": "pd",
+      "episode_id": "pd-positive-to-negative-narrow-seed-0",
+      "exclusion_reason": null,
+      "failure_reasons": [],
+      "included_in_aggregate": true,
+      "metrics": {
+        "integrated_absolute_error_rad_s": 0.7068305819988396,
+        "normalized_maximum_overshoot": 0.0,
+        "rise_time": {
+          "outcome": "measured",
+          "time_s": 1.1300000000000001
+        },
+        "saturation_fraction": 0.0,
+        "settling_time": {
+          "outcome": "measured",
+          "time_s": 1.7
+        },
+        "squared_control_effort_nm2_s": 0.3934122510379239,
+        "steady_state_absolute_error_rad": 0.00017512045572647182,
+        "steady_state_error_availability": "measured"
+      },
+      "scenario_id": "positive-to-negative-narrow",
+      "seed": 0,
+      "status": "passed",
+      "trajectory_file": "trajectories/0007.json",
+      "trajectory_sha256": "2457509b013df4ac2b4e044dafd0813c934aae89464ebb03d4ec5812d571aa87"
+    }
+  ],
+  "provenance": {
+    "code_version": "7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c",
+    "command": "uv run python experiments/01-feedback-control/scripts/run_evaluation.py",
+    "config_file": "evaluation-v1.toml",
+    "config_sha256": "d69b95e4623d34c0ad6b1800497c3e038cc5ec98781a08831e5ff4fdc193bc4a",
+    "mujoco_version": "3.16.0",
+    "platform": "macOS-26.4-arm64-arm-64bit",
+    "python_version": "3.12.15",
+    "working_tree_dirty": false
+  },
+  "schema_version": 1
+}
