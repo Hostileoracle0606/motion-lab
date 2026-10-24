@@ -61,7 +61,7 @@ uv run python experiments/01-feedback-control/scripts/generate_report.py \
   --output experiments/01-feedback-control/results/evaluation-v1/report
 ```
 
-Expected: four scenarios, eight successful episodes, aggregate evaluation JSON, Markdown report, three CSVs, and five PNGs.
+Expected: four scenarios, eight successful episodes, aggregate evaluation JSON, and a flat report directory containing one Markdown report, three CSVs, and five PNGs.
 
 **Step 5: Verify same-checkout repeatability**
 
@@ -78,8 +78,8 @@ Expected: manifests are identical.
 - Add: `experiments/01-feedback-control/results/evaluation-v1/evaluation.json`
 - Add: `experiments/01-feedback-control/results/evaluation-v1/trajectories/*.json`
 - Add: `experiments/01-feedback-control/results/evaluation-v1/report/report.md`
-- Add: `experiments/01-feedback-control/results/evaluation-v1/report/tables/*.csv`
-- Add: `experiments/01-feedback-control/results/evaluation-v1/report/plots/*.png`
+- Add: `experiments/01-feedback-control/results/evaluation-v1/report/*.csv`
+- Add: `experiments/01-feedback-control/results/evaluation-v1/report/*.png`
 
 **Interfaces:** Consumes Task 1's exact evidence files and manifest; produces the tracked evidence checked by Task 3.
 
