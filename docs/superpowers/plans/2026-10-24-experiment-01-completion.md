@@ -93,7 +93,7 @@ Expected: `git status --short` shows exactly the plan/design, `.gitignore`, and 
 
 Check that the evaluation and report identify the source commit, clean tree, environment, config checksum, scenario IDs, seeds, failures, limitations, and unknowns. Validate every relative Markdown link in the report.
 
-Expected: all required fields are present, no failed episodes, and all local links resolve.
+Expected: all required fields are present, the four declared P-controller failures and their reasons remain explicit, all four PD episodes pass, and all local links resolve.
 
 **Step 3: Commit the evidence unchanged**
 

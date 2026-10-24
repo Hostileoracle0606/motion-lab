@@ -47,7 +47,6 @@ runs/
 wandb/
 tensorboard/
 experiments/*/results/trajectories/
-experiments/01-feedback-control/results/evaluation-v1/
 *.ckpt
 *.pt
 *.pth
