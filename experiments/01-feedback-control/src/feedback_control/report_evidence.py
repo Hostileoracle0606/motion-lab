@@ -9,8 +9,23 @@ import math
 from pathlib import Path
 from typing import Any, Literal
 
-from feedback_control.config import EvaluationConfig, load_evaluation_config
-from feedback_control.trajectory import TrajectoryRecord, load_trajectory
+from feedback_control.config import (
+    EvaluationConfig,
+    build_evaluation_plan,
+    load_evaluation_config,
+)
+from feedback_control.evaluation import EpisodeMetrics
+from feedback_control.evaluator import (
+    evaluate_trajectory_record,
+    experiment_config_for_case,
+    failure_reasons_from_trajectory,
+)
+from feedback_control.trajectory import (
+    ConfigurationProvenance,
+    TrajectoryRecord,
+    configuration_provenance,
+    load_trajectory,
+)
 
 
 ControllerName = Literal["p", "pd"]
@@ -68,7 +83,8 @@ def load_evaluation_evidence(
         _load_episode(resolved_input, episode_payload, index)
         for index, episode_payload in enumerate(episodes_payload)
     )
-    _validate_shared_plan(episodes, provenance)
+    _validate_shared_plan(episodes, provenance, config)
+    _validate_episode_derivations(episodes, config)
     return EvaluationEvidence(
         input_dir=resolved_input,
         evaluation_sha256=hashlib.sha256(evaluation_path.read_bytes()).hexdigest(),
@@ -81,6 +97,7 @@ def load_evaluation_evidence(
 def _validate_shared_plan(
     episodes: tuple[EpisodeEvidence, ...],
     provenance: dict[str, Any],
+    config: EvaluationConfig,
 ) -> None:
     if len({episode.episode_id for episode in episodes}) != len(episodes):
         raise ValueError("episode identifiers must be unique")
@@ -89,6 +106,34 @@ def _validate_shared_plan(
         for episode in episodes
     ):
         raise ValueError("trajectory code versions do not match evaluation provenance")
+    expected_plan = build_evaluation_plan(config)
+    expected_cases = tuple(
+        (case.controller, case.scenario.id, case.seed) for case in expected_plan
+    )
+    actual_cases = tuple(
+        (episode.controller, episode.scenario_id, episode.seed)
+        for episode in episodes
+    )
+    if actual_cases != expected_cases:
+        raise ValueError("evidence must contain the complete declared evaluation plan")
+    expected_configurations: dict[str, ConfigurationProvenance] = {}
+    for episode, case in zip(episodes, expected_plan, strict=True):
+        expected_episode_id = (
+            f"{case.controller}-{case.scenario.id}-seed-{case.seed}"
+        )
+        if episode.episode_id != expected_episode_id:
+            raise ValueError("episode identifier does not match the declared plan")
+        if case.scenario.id not in expected_configurations:
+            expected_configurations[case.scenario.id] = configuration_provenance(
+                experiment_config_for_case(config, case)
+            )
+        if (
+            episode.trajectory.configuration
+            != expected_configurations[case.scenario.id]
+        ):
+            raise ValueError(
+                "trajectory configuration does not match the declared evaluation plan"
+            )
     plan_by_controller = {
         controller: tuple(
             (episode.scenario_id, episode.seed)
@@ -120,6 +165,60 @@ def _validate_shared_plan(
         }
         if len(gains) != 1:
             raise ValueError(f"{controller.upper()} controller gains must be shared")
+
+
+def _validate_episode_derivations(
+    episodes: tuple[EpisodeEvidence, ...],
+    config: EvaluationConfig,
+) -> None:
+    for episode in episodes:
+        expected_metrics = evaluate_trajectory_record(episode.trajectory, config)
+        if episode.metrics != _metrics_payload(expected_metrics):
+            raise ValueError(
+                f"episode {episode.episode_id} metrics do not match trajectory"
+            )
+        expected_failure_reasons = failure_reasons_from_trajectory(
+            episode.trajectory,
+            expected_metrics,
+            config,
+        )
+        expected_status = "failed" if expected_failure_reasons else "passed"
+        if (
+            episode.failure_reasons != expected_failure_reasons
+            or episode.status != expected_status
+        ):
+            raise ValueError(
+                f"episode {episode.episode_id} failure outcome does not match trajectory"
+            )
+
+
+def _metrics_payload(metrics: EpisodeMetrics) -> dict[str, Any]:
+    return {
+        "integrated_absolute_error_rad_s": (
+            metrics.integrated_absolute_error_rad_s
+        ),
+        "rise_time": {
+            "outcome": metrics.rise_time.outcome.value,
+            "time_s": metrics.rise_time.time_s,
+        },
+        "normalized_maximum_overshoot": (
+            metrics.normalized_maximum_overshoot
+        ),
+        "settling_time": {
+            "outcome": metrics.settling_time.outcome.value,
+            "time_s": metrics.settling_time.time_s,
+        },
+        "steady_state_absolute_error_rad": (
+            metrics.steady_state_absolute_error_rad
+        ),
+        "steady_state_error_availability": (
+            metrics.steady_state_error_availability.value
+        ),
+        "squared_control_effort_nm2_s": (
+            metrics.squared_control_effort_nm2_s
+        ),
+        "saturation_fraction": metrics.saturation_fraction,
+    }
 
 
 def _load_episode(

@@ -1,11 +1,22 @@
 """Machine-readable summary tables for Experiment 01 reports."""
 
 import csv
+from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any, Callable
 
 from feedback_control.report_evidence import EpisodeEvidence
+
+
+@dataclass(frozen=True)
+class ControllerOutcomeCounts:
+    episode_count: int
+    failed_episode_count: int
+    excluded_episode_count: int
+    unsettled_episode_count: int
+    joint_limit_violation_count: int
+    non_finite_state_count: int
 
 
 def write_report_tables(
@@ -68,6 +79,7 @@ def controller_summary_rows(
             for episode in controller_episodes
             if episode.included_in_aggregate
         )
+        outcome_counts = controller_outcome_counts(episodes, controller)
         for metric_name, unit, get_value in metric_specs:
             values = tuple(
                 float(value)
@@ -85,29 +97,53 @@ def controller_summary_rows(
                     ),
                     "measured_episode_count": len(values),
                     "included_episode_count": len(included),
-                    "failed_episode_count": sum(
-                        episode.status == "failed"
-                        for episode in controller_episodes
+                    "failed_episode_count": outcome_counts.failed_episode_count,
+                    "excluded_episode_count": (
+                        outcome_counts.excluded_episode_count
                     ),
-                    "excluded_episode_count": sum(
-                        not episode.included_in_aggregate
-                        for episode in controller_episodes
+                    "unsettled_episode_count": (
+                        outcome_counts.unsettled_episode_count
                     ),
-                    "unsettled_episode_count": sum(
-                        "not_settled" in episode.failure_reasons
-                        for episode in controller_episodes
+                    "joint_limit_violation_count": (
+                        outcome_counts.joint_limit_violation_count
                     ),
-                    "joint_limit_violation_count": sum(
-                        "joint_limit_violation" in episode.failure_reasons
-                        for episode in controller_episodes
-                    ),
-                    "non_finite_state_count": sum(
-                        "non_finite_state" in episode.failure_reasons
-                        for episode in controller_episodes
+                    "non_finite_state_count": (
+                        outcome_counts.non_finite_state_count
                     ),
                 }
             )
     return rows
+
+
+def controller_outcome_counts(
+    episodes: tuple[EpisodeEvidence, ...],
+    controller: str,
+) -> ControllerOutcomeCounts:
+    """Count recorded outcomes once for all report renderers."""
+    controller_episodes = tuple(
+        episode for episode in episodes if episode.controller == controller
+    )
+    return ControllerOutcomeCounts(
+        episode_count=len(controller_episodes),
+        failed_episode_count=sum(
+            episode.status == "failed" for episode in controller_episodes
+        ),
+        excluded_episode_count=sum(
+            not episode.included_in_aggregate for episode in controller_episodes
+        ),
+        unsettled_episode_count=sum(
+            episode.metrics["settling_time"]["outcome"] == "not_settled"
+            for episode in controller_episodes
+        ),
+        joint_limit_violation_count=sum(
+            "joint_limit_violation" in episode.failure_reasons
+            for episode in controller_episodes
+        ),
+        non_finite_state_count=sum(
+            "non_finite_state" in episode.failure_reasons
+            for episode in controller_episodes
+        ),
+    )
 
 
 def _write_episode_metrics(

@@ -151,7 +151,7 @@ def validate_trajectory(record: TrajectoryRecord) -> None:
     _validate_configuration(record.configuration)
     if not _is_sha256(record.config_digest):
         raise ValueError("config_digest must be a lowercase SHA-256 digest")
-    if record.config_digest != _configuration_digest(record.configuration):
+    if record.config_digest != configuration_digest(record.configuration):
         raise ValueError("config_digest does not match configuration")
     if record.environment_version != record.configuration.model_sha256:
         raise ValueError("environment_version does not match model_sha256")
@@ -510,7 +510,7 @@ def _build_trajectory_record(
     result: EpisodeResult,
     config: ExperimentConfig,
 ) -> TrajectoryRecord:
-    configuration = _configuration_provenance(config)
+    configuration = configuration_provenance(config)
     controller_gains = config.p if result.controller == "p" else config.pd
     transitions: list[TransitionRecord] = []
     for index, sample in enumerate(result.samples):
@@ -558,7 +558,7 @@ def _build_trajectory_record(
         environment_id=ENVIRONMENT_ID,
         environment_version=configuration.model_sha256,
         mujoco_version=version("mujoco"),
-        config_digest=_configuration_digest(configuration),
+        config_digest=configuration_digest(configuration),
         configuration=configuration,
         controller=ControllerMetadata(
             name=result.controller,
@@ -569,7 +569,8 @@ def _build_trajectory_record(
     )
 
 
-def _configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenance:
+def configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenance:
+    """Build the durable configuration identity for one experiment case."""
     model = mujoco.MjModel.from_xml_path(str(config.model.path))
     position_lower_limit_rad, position_upper_limit_rad = model.jnt_range[0]
     return ConfigurationProvenance(
@@ -592,7 +593,8 @@ def _configuration_provenance(config: ExperimentConfig) -> ConfigurationProvenan
     )
 
 
-def _configuration_digest(configuration: ConfigurationProvenance) -> str:
+def configuration_digest(configuration: ConfigurationProvenance) -> str:
+    """Return the canonical SHA-256 identity of a saved configuration."""
     canonical = json.dumps(
         asdict(configuration),
         allow_nan=False,

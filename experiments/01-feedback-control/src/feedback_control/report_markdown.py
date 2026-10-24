@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from feedback_control.report_evidence import EvaluationEvidence
+from feedback_control.report_tables import controller_outcome_counts
 
 
 REPORT_SCHEMA_VERSION = 1
@@ -163,23 +164,13 @@ def _protocol_lines(evidence: EvaluationEvidence) -> list[str]:
 
 
 def _outcome_row(evidence: EvaluationEvidence, controller: str) -> str:
-    episodes = tuple(
-        episode
-        for episode in evidence.episodes
-        if episode.controller == controller
-    )
-    failed = sum(episode.status == "failed" for episode in episodes)
-    excluded = sum(not episode.included_in_aggregate for episode in episodes)
-    unsettled = sum("not_settled" in episode.failure_reasons for episode in episodes)
-    joint_limit = sum(
-        "joint_limit_violation" in episode.failure_reasons for episode in episodes
-    )
-    non_finite = sum(
-        "non_finite_state" in episode.failure_reasons for episode in episodes
-    )
+    counts = controller_outcome_counts(evidence.episodes, controller)
     return (
-        f"| {controller.upper()} | {len(episodes)} | {failed} | {excluded} | "
-        f"{unsettled} | {joint_limit} | {non_finite} |"
+        f"| {controller.upper()} | {counts.episode_count} | "
+        f"{counts.failed_episode_count} | {counts.excluded_episode_count} | "
+        f"{counts.unsettled_episode_count} | "
+        f"{counts.joint_limit_violation_count} | "
+        f"{counts.non_finite_state_count} |"
     )
 
 

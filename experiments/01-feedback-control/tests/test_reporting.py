@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -20,7 +21,11 @@ REPORT_COMMAND = (
 )
 
 
-def _evaluation_input(tmp_path: Path) -> Path:
+def _evaluation_input(
+    tmp_path: Path,
+    *,
+    fail_if_not_settled: bool = True,
+) -> Path:
     config_contents = BASE_CONFIG_PATH.read_text(encoding="utf-8")
     config_contents = config_contents.replace(
         'path = "../models/one_link.xml"',
@@ -30,6 +35,10 @@ def _evaluation_input(tmp_path: Path) -> Path:
     config_contents = config_contents.replace(
         "steady_state_window_s = 0.50",
         "steady_state_window_s = 0.01",
+    )
+    config_contents = config_contents.replace(
+        "fail_if_not_settled = true",
+        f"fail_if_not_settled = {str(fail_if_not_settled).lower()}",
     )
     config_path = tmp_path / "evaluation.toml"
     config_path.write_text(config_contents, encoding="utf-8")
@@ -161,6 +170,85 @@ def test_report_rejects_a_configuration_checksum_mismatch(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="configuration checksum mismatch"):
         load_evaluation_evidence(input_dir, config_path)
+
+
+def test_report_rejects_evidence_missing_a_declared_case(tmp_path: Path) -> None:
+    input_dir = _evaluation_input(tmp_path)
+    evaluation_path = input_dir / "evaluation.json"
+    payload = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    omitted_scenario = payload["episodes"][0]["scenario_id"]
+    payload["episodes"] = [
+        episode
+        for episode in payload["episodes"]
+        if episode["scenario_id"] != omitted_scenario
+    ]
+    evaluation_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="complete declared evaluation plan"):
+        load_evaluation_evidence(input_dir, tmp_path / "evaluation.toml")
+
+
+def test_report_rejects_metrics_that_do_not_match_the_trajectory(
+    tmp_path: Path,
+) -> None:
+    input_dir = _evaluation_input(tmp_path)
+    evaluation_path = input_dir / "evaluation.json"
+    payload = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    payload["episodes"][0]["metrics"]["integrated_absolute_error_rad_s"] += 1.0
+    evaluation_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="metrics do not match trajectory"):
+        load_evaluation_evidence(input_dir, tmp_path / "evaluation.toml")
+
+
+def test_report_rejects_failure_status_that_does_not_match_the_trajectory(
+    tmp_path: Path,
+) -> None:
+    input_dir = _evaluation_input(tmp_path)
+    evaluation_path = input_dir / "evaluation.json"
+    payload = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    failed_episode = next(
+        episode for episode in payload["episodes"] if episode["failure_reasons"]
+    )
+    failed_episode["status"] = "passed"
+    failed_episode["failure_reasons"] = []
+    evaluation_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="failure outcome does not match trajectory"):
+        load_evaluation_evidence(input_dir, tmp_path / "evaluation.toml")
+
+
+def test_report_counts_unsettled_episodes_independently_of_failure_policy(
+    tmp_path: Path,
+) -> None:
+    input_dir = _evaluation_input(tmp_path, fail_if_not_settled=False)
+    output_dir = tmp_path / "report"
+
+    generate_report(
+        input_dir=input_dir,
+        config_path=tmp_path / "evaluation.toml",
+        output_dir=output_dir,
+        command=REPORT_COMMAND,
+    )
+
+    with (output_dir / "controller-summary.csv").open(
+        encoding="utf-8",
+        newline="",
+    ) as summary_file:
+        summary_rows = list(csv.DictReader(summary_file))
+    assert {row["unsettled_episode_count"] for row in summary_rows} == {"4"}
+    report = (output_dir / "report.md").read_text(encoding="utf-8")
+    assert "| P | 4 | 0 | 0 | 4 | 0 | 0 |" in report
+    assert "| PD | 4 | 0 | 0 | 4 | 0 | 0 |" in report
 
 
 def test_report_command_consumes_existing_records(tmp_path: Path) -> None:
