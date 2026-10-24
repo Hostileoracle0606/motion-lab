@@ -165,7 +165,7 @@ def _evaluate_plan_case(
     case_index: int,
     code_version: str,
 ) -> EvaluatedEpisode:
-    experiment_config = _experiment_config(config, case)
+    experiment_config = experiment_config_for_case(config, case)
     result = run_episode(
         experiment_config,
         case.controller,
@@ -190,27 +190,15 @@ def _evaluate_plan_case(
     validated = load_trajectory(trajectory_path)
     if validated != saved:
         raise ValueError("persisted trajectory does not match validated record")
-    metrics = evaluate_episode(
-        _episode_result(validated),
-        control_interval_s=config.episode.control_interval_s,
-        thresholds=config.metrics,
-        torque_limit_nm=config.episode.torque_limit_nm,
-    )
-    failure_reasons: list[str] = []
-    if result.terminated:
-        failure_reasons.append(result.termination_reason)
-    if (
-        config.failure_rules.fail_if_not_settled
-        and metrics.settling_time.outcome is not TimingOutcome.MEASURED
-    ):
-        failure_reasons.append("not_settled")
+    metrics = evaluate_trajectory_record(validated, config)
+    failure_reasons = failure_reasons_from_trajectory(validated, metrics, config)
     return EvaluatedEpisode(
         episode_id=episode_id,
         controller=case.controller,
         scenario_id=case.scenario.id,
         seed=case.seed,
         status="failed" if failure_reasons else "passed",
-        failure_reasons=tuple(failure_reasons),
+        failure_reasons=failure_reasons,
         included_in_aggregate=True,
         exclusion_reason=None,
         trajectory_file=trajectory_relative_path.as_posix(),
@@ -220,7 +208,38 @@ def _evaluate_plan_case(
     )
 
 
-def _episode_result(record: TrajectoryRecord) -> EpisodeResult:
+def evaluate_trajectory_record(
+    record: TrajectoryRecord,
+    config: EvaluationConfig,
+) -> EpisodeMetrics:
+    """Recompute episode metrics from one validated durable trajectory."""
+    return evaluate_episode(
+        episode_result_from_trajectory(record),
+        control_interval_s=config.episode.control_interval_s,
+        thresholds=config.metrics,
+        torque_limit_nm=config.episode.torque_limit_nm,
+    )
+
+
+def failure_reasons_from_trajectory(
+    record: TrajectoryRecord,
+    metrics: EpisodeMetrics,
+    config: EvaluationConfig,
+) -> tuple[str, ...]:
+    """Derive policy failures from a trajectory boundary and recomputed metrics."""
+    failure_reasons: list[str] = []
+    final_transition = record.transitions[-1]
+    if final_transition.terminated:
+        failure_reasons.append(cast(str, final_transition.termination_reason))
+    if (
+        config.failure_rules.fail_if_not_settled
+        and metrics.settling_time.outcome is not TimingOutcome.MEASURED
+    ):
+        failure_reasons.append("not_settled")
+    return tuple(failure_reasons)
+
+
+def episode_result_from_trajectory(record: TrajectoryRecord) -> EpisodeResult:
     """Reconstruct the metric input from the validated durable record."""
     final_transition = record.transitions[-1]
     final_state = final_transition.next_state
@@ -252,7 +271,7 @@ def _episode_result(record: TrajectoryRecord) -> EpisodeResult:
     )
 
 
-def _experiment_config(
+def experiment_config_for_case(
     config: EvaluationConfig,
     case: EvaluationPlanCase,
 ) -> ExperimentConfig:
