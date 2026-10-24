@@ -6,7 +6,7 @@
 
 **Architecture:** Treat the clean plan-only commit created in Task 1 as the evaluated source version. Generate the already-defined evaluation and report artifacts from that clean tree, verify exact repeatability, commit the artifacts unchanged, then update documentation status. No simulation, controller, metric, evaluator, or reporting behavior changes are in scope.
 
-**Tech Stack:** Python 3.11, uv, pytest, MuJoCo, Matplotlib, Git, GitHub CLI
+**Tech Stack:** Python 3.12, uv, pytest, MuJoCo, Matplotlib, Git, GitHub CLI
 
 **Spec:** `docs/superpowers/specs/2026-10-24-experiment-01-completion-design.md`
 

@@ -11,11 +11,53 @@ persistence and validation, pure trajectory metrics, a theory-guided gain sweep,
 and a versioned multi-scenario evaluator. The
 [machine-readable evaluation](results/evaluation-v1/evaluation.json) and
 [generated report](results/evaluation-v1/report/report.md) publish eight episode
-records across four scenarios. They record source commit `7a6d152`, a clean
-working tree, the locked environment, configuration checksum, seed policy, all
-four P-controller failures, and all four passing PD episodes. This evidence is
-limited to the declared simulation protocol; it is not physical-robot,
-real-time-performance, production-readiness, or controller-optimality evidence.
+records across four scenarios. They record source commit
+`7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c`, a clean working tree, the locked
+environment, configuration checksum, seed policy, all four P-controller
+failures, and all four passing PD episodes. This evidence is limited to the
+declared simulation protocol; it is not physical-robot, real-time-performance,
+production-readiness, or controller-optimality evidence.
+
+### Reproduce the published evidence exactly
+
+The published files evaluate the source commit above, which precedes the later
+commit that adds those generated files. Running the default evaluation command
+at a newer commit correctly records that newer provenance, so it will not be
+byte-identical. From a clean published checkout, use a separate temporary
+worktree at the recorded source commit:
+
+```bash
+set -euo pipefail
+published_checkout="$(pwd -P)"
+reproduction_parent="$(mktemp -d)"
+reproduction_checkout="$reproduction_parent/motion-lab-source"
+
+git worktree add --detach \
+  "$reproduction_checkout" \
+  7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c
+cd "$reproduction_checkout"
+
+uv sync
+uv run pytest -q
+uv run python experiments/01-feedback-control/scripts/run_evaluation.py
+uv run python experiments/01-feedback-control/scripts/generate_report.py \
+  --input experiments/01-feedback-control/results/evaluation-v1 \
+  --config experiments/01-feedback-control/configs/evaluation-v1.toml \
+  --output experiments/01-feedback-control/results/evaluation-v1/report
+
+diff -qr \
+  "$published_checkout/experiments/01-feedback-control/results/evaluation-v1" \
+  "$reproduction_checkout/experiments/01-feedback-control/results/evaluation-v1"
+
+cd "$published_checkout"
+git worktree remove --force "$reproduction_checkout"
+rmdir "$reproduction_parent"
+```
+
+On the recorded environment—macOS 26.4 on arm64, Python 3.12.15, and MuJoCo
+3.16.0—the `diff -qr` command exits successfully with no output. Other platforms
+can legitimately change recorded provenance or rendered PNG bytes; this
+repository does not claim cross-platform byte identity.
 
 ## Research question
 
