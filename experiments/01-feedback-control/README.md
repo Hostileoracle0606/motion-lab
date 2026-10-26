@@ -2,15 +2,62 @@
 
 ## Status
 
-> **In progress — environment, model, controllers, closed-loop runner, trajectory schema and validator, controller metrics, versioned evaluation suite, reproducible multi-scenario evaluator, declared gain sweep, and real-time visual replay implemented; formal evaluated results not yet published.**
+> **Complete — the simulated one-link P-versus-PD evaluation was reproduced from a clean checkout, and its source records, tables, plots, failures, and limitations are published.**
 
 This directory contains the experiment specification, pinned Python environment,
 initial one-link MuJoCo model, independently tested P and PD controller
 equations, a deterministic closed-loop episode runner, versioned trajectory
 persistence and validation, pure trajectory metrics, a theory-guided gain sweep,
-and a versioned multi-scenario evaluator. Evaluated result artifacts have not
-been published. The implemented protocol and command make measurements
-reproducible; they are not themselves a reported comparison result.
+and a versioned multi-scenario evaluator. The
+[machine-readable evaluation](results/evaluation-v1/evaluation.json) and
+[generated report](results/evaluation-v1/report/report.md) publish eight episode
+records across four scenarios. They record source commit
+`7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c`, a clean working tree, the locked
+environment, configuration checksum, seed policy, all four P-controller
+failures, and all four passing PD episodes. This evidence is limited to the
+declared simulation protocol; it is not physical-robot, real-time-performance,
+production-readiness, or controller-optimality evidence.
+
+### Reproduce the published evidence exactly
+
+The published files evaluate the source commit above, which precedes the later
+commit that adds those generated files. Running the default evaluation command
+at a newer commit correctly records that newer provenance, so it will not be
+byte-identical. From a clean published checkout, use a separate temporary
+worktree at the recorded source commit:
+
+```bash
+set -euo pipefail
+published_checkout="$(pwd -P)"
+reproduction_parent="$(mktemp -d)"
+reproduction_checkout="$reproduction_parent/motion-lab-source"
+
+git worktree add --detach \
+  "$reproduction_checkout" \
+  7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c
+cd "$reproduction_checkout"
+
+uv sync
+uv run pytest -q
+uv run python experiments/01-feedback-control/scripts/run_evaluation.py
+uv run python experiments/01-feedback-control/scripts/generate_report.py \
+  --input experiments/01-feedback-control/results/evaluation-v1 \
+  --config experiments/01-feedback-control/configs/evaluation-v1.toml \
+  --output experiments/01-feedback-control/results/evaluation-v1/report
+
+diff -qr \
+  "$published_checkout/experiments/01-feedback-control/results/evaluation-v1" \
+  "$reproduction_checkout/experiments/01-feedback-control/results/evaluation-v1"
+
+cd "$published_checkout"
+git worktree remove --force "$reproduction_checkout"
+rmdir "$reproduction_parent"
+```
+
+On the recorded environment—macOS 26.4 on arm64, Python 3.12.15, and MuJoCo
+3.16.0—the `diff -qr` command exits successfully with no output. Other platforms
+can legitimately change recorded provenance or rendered PNG bytes; this
+repository does not claim cross-platform byte identity.
 
 ## Research question
 
@@ -616,29 +663,30 @@ before producing:
 
 Plot data comes only from validated saved trajectories. Plot labels carry units,
 scenario and seed identity, and controller gains; `report.md` maps each plotted
-episode to its source filename and digest. Generated outputs remain ignored by
-Git until issue #7 deliberately selects the small evidence set to publish.
+episode to its source filename and digest. The selected `evaluation-v1` evidence
+set is committed so every report link and checksum can be audited locally.
 
-## Analysis and plots
+## Published analysis and plots
 
-Planned outputs for each comparison:
+The [generated report](results/evaluation-v1/report/report.md) contains:
 
 - position and target versus time;
 - velocity versus time;
 - controller output and applied action versus time;
 - error versus time;
 - metric summary across the full scenario set;
-- gain-sweep heatmaps or response maps where useful;
 - a table of failures and saturation rates.
 
-Plots should include units, controller configuration, scenario identity, and a link or filename for the machine-readable source data.
+Every plot includes units, controller configuration, and scenario identity. The
+report links each plotted episode to its committed machine-readable source data
+and SHA-256 digest.
 
 ## Reproducibility checklist
 
-Experiment 01 cannot be marked complete until:
+Experiment 01 met this gate through clean-checkout reproduction:
 
-- [ ] MuJoCo model and controller code are committed.
-- [ ] Runtime and dependencies are pinned.
+- [x] MuJoCo model and controller code are committed.
+- [x] Runtime and dependencies are pinned.
 - [x] All experiment-defining values are in versioned configuration.
 - [x] Initial conditions, targets, and seeds are declared.
 - [x] Trajectory schema and validator are implemented.
@@ -649,9 +697,9 @@ Experiment 01 cannot be marked complete until:
 - [x] Reported tables and plots can be regenerated.
 - [x] Results include variability and all declared failures.
 
-## Expected repository additions
+## Repository layout
 
-Implementation is expected to add a structure similar to:
+The implemented experiment uses this structure:
 
 ```text
 experiments/01-feedback-control/
@@ -664,7 +712,8 @@ experiments/01-feedback-control/
 └── results/
 ```
 
-This is a proposed organization, not a statement that these files already exist.
+The committed `results/evaluation-v1/` directory contains the independently
+reproduced evidence set; other ad hoc generated outputs remain untracked.
 
 ## Link to the next stage
 

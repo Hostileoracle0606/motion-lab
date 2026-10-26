@@ -1,0 +1,15 @@
+controller,metric,unit,mean,population_standard_deviation,measured_episode_count,included_episode_count,failed_episode_count,excluded_episode_count,unsettled_episode_count,joint_limit_violation_count,non_finite_state_count
+p,integrated_absolute_error,rad s,1.5313148796525438,0.680363799106825,4,4,4,0,4,2,0
+p,rise_time,s,0.37,0.010000000000000009,4,4,4,0,4,2,0
+p,normalized_maximum_overshoot,unitless,0.5690929917081207,0.3428293895799897,4,4,4,0,4,2,0
+p,settling_time,s,,,0,4,4,0,4,2,0
+p,steady_state_absolute_error,rad,0.5813407074263834,0.31435294380214995,4,4,4,0,4,2,0
+p,squared_control_effort,N^2 m^2 s,5.014641957712674,1.1985781299782363,4,4,4,0,4,2,0
+p,saturation_fraction,fraction,0.22142857142857142,0.22142857142857142,4,4,4,0,4,2,0
+pd,integrated_absolute_error,rad s,1.0719877739902808,0.36515719199144125,4,4,0,0,0,0,0
+pd,rise_time,s,1.1300000000000001,0.0,4,4,0,0,0,0,0
+pd,normalized_maximum_overshoot,unitless,0.0,0.0,4,4,0,0,0,0,0
+pd,settling_time,s,1.845,0.14500000000000002,4,4,0,0,0,0,0
+pd,steady_state_absolute_error,rad,0.00026857317466131404,9.345271893484221e-05,4,4,0,0,0,0,0
+pd,squared_control_effort,N^2 m^2 s,0.9087636610618257,0.5153514100239018,4,4,0,0,0,0,0
+pd,saturation_fraction,fraction,0.00875,0.00875,4,4,0,0,0,0,0

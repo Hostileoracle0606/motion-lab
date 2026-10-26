@@ -1,0 +1,9 @@
+episode_id,controller,scenario_id,seed,status,failure_reasons,included_in_aggregate,exclusion_reason,saturation_fraction,trajectory_file,trajectory_sha256
+p-negative-to-positive-wide-seed-0,p,negative-to-positive-wide,0,failed,joint_limit_violation;not_settled,True,,0.44285714285714284,trajectories/0000.json,640078b5c53ef82a42d50109151008d3ea316a6514c0b90b54e57f4fb615e69b
+p-positive-to-negative-wide-seed-0,p,positive-to-negative-wide,0,failed,joint_limit_violation;not_settled,True,,0.44285714285714284,trajectories/0001.json,60b02e3d8f5564d7f511c69eea068aa3737a61ef3117d8d83535462d9f57cbd4
+p-negative-to-positive-narrow-seed-0,p,negative-to-positive-narrow,0,failed,not_settled,True,,0.0,trajectories/0002.json,1eb61116e5d2737f3375a79d58580fbce6605906bd52c94588d8e24280a2a041
+p-positive-to-negative-narrow-seed-0,p,positive-to-negative-narrow,0,failed,not_settled,True,,0.0,trajectories/0003.json,fe8559ea44c3f35caca83463eb08dd909b13dc951cccc7899118d9184e09258e
+pd-negative-to-positive-wide-seed-0,pd,negative-to-positive-wide,0,passed,,True,,0.0175,trajectories/0004.json,6e819b0782bb6b14dcc4185a39b86cbfd54f8729ef0e639bdb9c3c46e36f309d
+pd-positive-to-negative-wide-seed-0,pd,positive-to-negative-wide,0,passed,,True,,0.0175,trajectories/0005.json,7348f0cb9468b0e6c6c6cfade26632b27b7138d7ec55a69c90229775f09563fa
+pd-negative-to-positive-narrow-seed-0,pd,negative-to-positive-narrow,0,passed,,True,,0.0,trajectories/0006.json,f68f050531e873348e8888935d02c332a2fe6d7b4ac7fae54258a36869f3b872
+pd-positive-to-negative-narrow-seed-0,pd,positive-to-negative-narrow,0,passed,,True,,0.0,trajectories/0007.json,2457509b013df4ac2b4e044dafd0813c934aae89464ebb03d4ec5812d571aa87

@@ -74,7 +74,7 @@ interfaces, assumptions, commands, and evidence must remain documented.
 
 | Experiment | Status |
 | --- | --- |
-| [01 — Feedback control](experiments/01-feedback-control/README.md) | Implementation available; formal evaluation in progress |
+| [01 — Feedback control](experiments/01-feedback-control/README.md) | Complete; clean-checkout reproduction and simulated evidence published |
 | 02 — State-transition data | Planned |
 | 03 — Forward dynamics | Planned |
 | 04 — Learned dynamics | Planned |
