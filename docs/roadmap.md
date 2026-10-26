@@ -8,7 +8,8 @@ Motion Lab follows a dependency-driven sequence. Each stage must produce evidenc
 - **In progress:** work has started, but one or more completion criteria remain unmet.
 - **Complete:** committed code and artifacts satisfy the documented gate and the result has been reproduced from a clean checkout.
 
-The first experiment is **complete**. Later experiments remain **planned**.
+The first two experiments are **complete**. Later experiments remain
+**planned**.
 
 ## Stage 1 — Feedback control in MuJoCo
 
@@ -54,7 +55,7 @@ Each transition will have the conceptual form:
 
 It must also retain timing, episode boundaries, termination reason, environment version, controller configuration, and random seed. These fields prevent a numerically convenient array from becoming an ambiguous scientific artifact.
 
-**Planned artifact**
+**Published artifact**
 
 - A versioned transition schema.
 - A recorder and validator.
@@ -68,7 +69,18 @@ It must also retain timing, episode boundaries, termination reason, environment 
 - Split construction prevents adjacent transitions from leaking across partitions.
 - Data validation rejects missing, non-finite, or inconsistent records.
 
-**Status:** Planned.
+**Status:** Complete. The
+[schema-v1 dataset and dataset card](../experiments/02-state-transition-dataset/DATASET_CARD.md)
+publish 2,540 transitions from eight simulated episodes. Complete scenarios
+define the partitions: 940 training rows across both wide-displacement
+directions, 800 validation rows from the negative-to-positive narrow scenario,
+and 800 test rows from the positive-to-negative narrow scenario. P and PD
+episodes and adjacent transitions never cross partitions. All eight saved
+applied-action sequences replayed with zero recorded state error at absolute
+tolerance `1e-12`. A separate clean worktree at builder commit `e95c7a0` passed
+all 229 tests and regenerated the manifest and three JSONL partitions
+byte-for-byte. This is deterministic one-link simulation evidence with one
+seed, not learned-model performance or physical-hardware evidence.
 
 ## Stage 3 — Forward-dynamics baseline
 

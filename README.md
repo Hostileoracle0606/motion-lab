@@ -75,7 +75,7 @@ interfaces, assumptions, commands, and evidence must remain documented.
 | Experiment | Status |
 | --- | --- |
 | [01 — Feedback control](experiments/01-feedback-control/README.md) | Complete; clean-checkout reproduction and simulated evidence published |
-| 02 — State-transition data | Planned |
+| [02 — State-transition data](experiments/02-state-transition-dataset/README.md) | Complete; schema-v1 dataset reproduced byte-for-byte from its clean builder commit |
 | 03 — Forward dynamics | Planned |
 | 04 — Learned dynamics | Planned |
 | 05 — Model predictive control | Planned |

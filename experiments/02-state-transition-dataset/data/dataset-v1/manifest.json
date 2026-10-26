@@ -1,0 +1,139 @@
+{
+  "metadata": {
+    "build_command": "uv run python experiments/02-state-transition-dataset/scripts/build_dataset.py",
+    "builder_code_version": "e95c7a09a53692a64f660acd0229fd86ec035c53",
+    "builder_working_tree_dirty": false,
+    "dataset_config_file": "experiments/02-state-transition-dataset/configs/dataset-v1.toml",
+    "dataset_config_sha256": "b774ecffea639068fe554f90840184f8c3336d912542f4cffe011249a799bca4",
+    "dataset_version": "experiment-02-transition-v1",
+    "episodes": [
+      {
+        "controller_id": "p",
+        "episode_id": "p-negative-to-positive-wide-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "negative-to-positive-wide",
+        "seed": 0,
+        "source_trajectory_sha256": "640078b5c53ef82a42d50109151008d3ea316a6514c0b90b54e57f4fb615e69b",
+        "split": "train",
+        "transition_count": 70
+      },
+      {
+        "controller_id": "p",
+        "episode_id": "p-positive-to-negative-wide-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "positive-to-negative-wide",
+        "seed": 0,
+        "source_trajectory_sha256": "60b02e3d8f5564d7f511c69eea068aa3737a61ef3117d8d83535462d9f57cbd4",
+        "split": "train",
+        "transition_count": 70
+      },
+      {
+        "controller_id": "p",
+        "episode_id": "p-negative-to-positive-narrow-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "negative-to-positive-narrow",
+        "seed": 0,
+        "source_trajectory_sha256": "1eb61116e5d2737f3375a79d58580fbce6605906bd52c94588d8e24280a2a041",
+        "split": "validation",
+        "transition_count": 400
+      },
+      {
+        "controller_id": "p",
+        "episode_id": "p-positive-to-negative-narrow-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "positive-to-negative-narrow",
+        "seed": 0,
+        "source_trajectory_sha256": "fe8559ea44c3f35caca83463eb08dd909b13dc951cccc7899118d9184e09258e",
+        "split": "test",
+        "transition_count": 400
+      },
+      {
+        "controller_id": "pd",
+        "episode_id": "pd-negative-to-positive-wide-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "negative-to-positive-wide",
+        "seed": 0,
+        "source_trajectory_sha256": "6e819b0782bb6b14dcc4185a39b86cbfd54f8729ef0e639bdb9c3c46e36f309d",
+        "split": "train",
+        "transition_count": 400
+      },
+      {
+        "controller_id": "pd",
+        "episode_id": "pd-positive-to-negative-wide-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "positive-to-negative-wide",
+        "seed": 0,
+        "source_trajectory_sha256": "7348f0cb9468b0e6c6c6cfade26632b27b7138d7ec55a69c90229775f09563fa",
+        "split": "train",
+        "transition_count": 400
+      },
+      {
+        "controller_id": "pd",
+        "episode_id": "pd-negative-to-positive-narrow-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "negative-to-positive-narrow",
+        "seed": 0,
+        "source_trajectory_sha256": "f68f050531e873348e8888935d02c332a2fe6d7b4ac7fae54258a36869f3b872",
+        "split": "validation",
+        "transition_count": 400
+      },
+      {
+        "controller_id": "pd",
+        "episode_id": "pd-positive-to-negative-narrow-seed-0",
+        "max_position_error_rad": 0.0,
+        "max_velocity_error_rad_s": 0.0,
+        "replay_verified": true,
+        "scenario_id": "positive-to-negative-narrow",
+        "seed": 0,
+        "source_trajectory_sha256": "2457509b013df4ac2b4e044dafd0813c934aae89464ebb03d4ec5812d571aa87",
+        "split": "test",
+        "transition_count": 400
+      }
+    ],
+    "replay_absolute_tolerance": 1e-12,
+    "schema_version": 1,
+    "source_code_version": "7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c",
+    "source_evaluation_sha256": "f17e2cfb9a56d417918b9a2db497bcdf8b1710aa195c9d83b9366bc5b472b2d9",
+    "split_policy": "complete scenario assignment; paired controllers and adjacent transitions remain in one partition"
+  },
+  "partitions": [
+    {
+      "episode_count": 4,
+      "file": "train.jsonl",
+      "row_count": 940,
+      "scenario_count": 2,
+      "sha256": "96cb44fa983234e0fe4da92d91ac4f83d64bca1d2a15fb7382ed031786dc638a",
+      "split": "train"
+    },
+    {
+      "episode_count": 2,
+      "file": "validation.jsonl",
+      "row_count": 800,
+      "scenario_count": 1,
+      "sha256": "ae5f95ef84d9695d7d6c88082e830bb824d1810128f7671b2020be142f87a456",
+      "split": "validation"
+    },
+    {
+      "episode_count": 2,
+      "file": "test.jsonl",
+      "row_count": 800,
+      "scenario_count": 1,
+      "sha256": "ec6a3e70ba16edb2dc75d60f74df42d65f2d81e118247548c1be6c7b9578da71",
+      "split": "test"
+    }
+  ]
+}
