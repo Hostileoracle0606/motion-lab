@@ -23,7 +23,14 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["experiments/01-feedback-control/tests"]
+addopts = ["--import-mode=importlib"]
+testpaths = [
+    "experiments/01-feedback-control/tests",
+    "experiments/02-state-transition-dataset/tests",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["experiments/01-feedback-control/src/feedback_control"]
+packages = [
+    "experiments/01-feedback-control/src/feedback_control",
+    "experiments/02-state-transition-dataset/src/state_transition_dataset",
+]
