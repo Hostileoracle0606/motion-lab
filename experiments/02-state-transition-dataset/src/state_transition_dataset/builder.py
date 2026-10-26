@@ -14,8 +14,10 @@ from feedback_control.trajectory import TransitionRecord
 from state_transition_dataset.config import DatasetConfig, SPLIT_NAMES, SplitName
 from state_transition_dataset.schema import (
     DATASET_SCHEMA_VERSION,
+    EpisodeManifest,
     TransitionRow,
 )
+from state_transition_dataset.replay import verify_action_replay
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,48 @@ def build_rows(config: DatasetConfig) -> RowBuild:
         source_code_version=source_code_version,
         model_path=evidence.config.model.path,
     )
+
+
+def build_episode_manifests(
+    build: RowBuild,
+    absolute_tolerance: float,
+) -> tuple[EpisodeManifest, ...]:
+    """Replay every source episode and summarize its dataset membership."""
+    rows_by_episode = {
+        episode.episode_id: tuple(
+            row
+            for rows in build.rows_by_split.values()
+            for row in rows
+            if row.episode_id == episode.episode_id
+        )
+        for episode in build.episodes
+    }
+    manifests: list[EpisodeManifest] = []
+    for episode in build.episodes:
+        rows = rows_by_episode[episode.episode_id]
+        if not rows:
+            raise ValueError(f"episode {episode.episode_id} has no dataset rows")
+        replay = verify_action_replay(
+            episode.trajectory,
+            build.model_path,
+            absolute_tolerance,
+        )
+        first = rows[0]
+        manifests.append(
+            EpisodeManifest(
+                split=first.split,
+                episode_id=episode.episode_id,
+                scenario_id=episode.scenario_id,
+                controller_id=episode.controller,
+                seed=episode.seed,
+                transition_count=len(rows),
+                source_trajectory_sha256=episode.trajectory_sha256,
+                replay_verified=True,
+                max_position_error_rad=replay.max_position_error_rad,
+                max_velocity_error_rad_s=replay.max_velocity_error_rad_s,
+            )
+        )
+    return tuple(manifests)
 
 
 def _validated_split_policy(
