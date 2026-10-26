@@ -56,8 +56,8 @@
 - Create: `experiments/02-state-transition-dataset/tests/test_validation.py`
 
 **Interfaces:**
-- Produces frozen `TransitionRow`, `EpisodeManifest`, `PartitionManifest`, `DatasetManifest`, and `ValidatedDataset` dataclasses.
-- Produces `write_dataset(output_dir: Path, manifest: DatasetManifest, rows_by_split: Mapping[SplitName, tuple[TransitionRow, ...]]) -> None` and `load_and_validate_dataset(output_dir: Path, expected_dataset_version: str) -> ValidatedDataset`.
+- Produces frozen `TransitionRow`, `EpisodeManifest`, `DatasetMetadata`, `PartitionManifest`, `DatasetManifest`, and `ValidatedDataset` dataclasses.
+- Produces `write_dataset(output_dir: Path, metadata: DatasetMetadata, rows_by_split: Mapping[SplitName, tuple[TransitionRow, ...]]) -> DatasetManifest` and `load_and_validate_dataset(output_dir: Path, expected_dataset_version: str) -> ValidatedDataset`. The writer computes partition checksums/counts before serializing the final manifest.
 
 - [ ] Write failing tests for deterministic round-trip serialization, exact fields, non-finite values, time/index continuity, state continuity, action limits, one final boundary, partition checksum tampering, undeclared membership, duplicate keys, and episode/scenario leakage.
 - [ ] Run the focused file; expect missing-module failure.
@@ -74,7 +74,7 @@
 
 **Interfaces:**
 - Consumes `load_evaluation_evidence`, `DatasetConfig`, and Task 2 schema types.
-- Produces `build_rows(config: DatasetConfig) -> tuple[Mapping[SplitName, tuple[TransitionRow, ...]], tuple[EpisodeManifest, ...], str]`, where the string is the source evaluation SHA-256.
+- Produces frozen `RowBuild(rows_by_split, episodes, source_evaluation_sha256, source_code_version, model_path)` and `build_rows(config: DatasetConfig) -> RowBuild`. `episodes` retains the validated `EpisodeEvidence` needed by replay; Task 3 does not construct the final `EpisodeManifest` prematurely.
 
 - [ ] Write failing tests that map complete scenarios to the declared splits, keep P/PD pairs together, preserve all temporal/action/provenance fields, retain early termination, and reject unassigned, multiply assigned, or non-finite source episodes.
 - [ ] Run focused tests; expect missing builder failure.
@@ -92,7 +92,7 @@
 
 **Interfaces:**
 - Produces `ReplayResult(max_position_error_rad: float, max_velocity_error_rad_s: float)` and `verify_action_replay(trajectory: TrajectoryRecord, model_path: Path, absolute_tolerance: float) -> ReplayResult`.
-- `EpisodeManifest` gains replay errors and `replay_verified`; Task 3's builder invokes replay once per source episode.
+- Produces `build_episode_manifests(build: RowBuild, absolute_tolerance: float) -> tuple[EpisodeManifest, ...]`, invoking replay once per source episode and filling the replay fields already defined by Task 2.
 
 - [ ] Write failing tests for exact deterministic replay, use of applied rather than raw torque, model checksum mismatch, invalid tolerance, and failure when a saved next state exceeds tolerance.
 - [ ] Run focused tests; expect missing replay failure.
