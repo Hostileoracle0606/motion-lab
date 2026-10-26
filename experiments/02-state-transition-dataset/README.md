@@ -1,5 +1,9 @@
 # Experiment 02 — Versioned State-Transition Dataset
 
+## Status
+
+> **Complete — the schema-v1 scenario-split dataset was reproduced byte-for-byte from its clean builder commit.**
+
 Experiment 02 turns the validated Experiment 01 trajectories into a directly
 consumable dynamics dataset. It preserves the transition contract
 
