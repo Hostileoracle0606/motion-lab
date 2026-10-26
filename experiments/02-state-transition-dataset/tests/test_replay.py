@@ -40,7 +40,7 @@ def test_replay_uses_applied_action_not_raw_controller_output() -> None:
         config.source_evaluation_config,
     )
     trajectory = evidence.episodes[0].trajectory
-    first = replace(trajectory.transitions[0], raw_torque_nm=1_000_000.0)
+    first = replace(trajectory.transitions[0], raw_torque_nm=0.0)
     changed_raw = replace(
         trajectory,
         transitions=(first,) + trajectory.transitions[1:],

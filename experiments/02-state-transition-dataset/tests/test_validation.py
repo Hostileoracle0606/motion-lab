@@ -78,6 +78,57 @@ def test_rejects_unknown_row_fields_even_with_updated_checksum(
         load_and_validate_dataset(output, DATASET_VERSION)
 
 
+def test_rejects_manifest_source_commit_that_contradicts_rows(
+    tmp_path: Path,
+) -> None:
+    metadata, rows = _valid_dataset()
+    output = tmp_path / "dataset"
+    write_dataset(output, metadata, rows)
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["metadata"]["source_code_version"] = "0" * 40
+    manifest_path.write_text(
+        json.dumps(manifest, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="row source code version does not match dataset metadata",
+    ):
+        load_and_validate_dataset(output, DATASET_VERSION)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("seed", False, "episode manifest seed must be a non-negative integer"),
+        (
+            "transition_count",
+            2.0,
+            "episode manifest transition_count must be a positive integer",
+        ),
+    ],
+)
+def test_rejects_non_integer_episode_manifest_fields(
+    tmp_path: Path,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    metadata, rows = _valid_dataset()
+    output = tmp_path / "dataset"
+    write_dataset(output, metadata, rows)
+    manifest_path = output / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["metadata"]["episodes"][0][field] = value
+    manifest_path.write_text(
+        json.dumps(manifest, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    )
+
+    with pytest.raises(ValueError, match=message):
+        load_and_validate_dataset(output, DATASET_VERSION)
+
+
 @pytest.mark.parametrize(
     ("replacement", "message"),
     [

@@ -220,6 +220,10 @@ def _validate_row(row: TransitionRow, metadata: DatasetMetadata) -> None:
     _require_sha256("environment_version", row.environment_version)
     if not _GIT_SHA_PATTERN.fullmatch(row.source_code_version):
         raise ValueError("source_code_version must be a full lowercase Git SHA")
+    if row.source_code_version != metadata.source_code_version:
+        raise ValueError(
+            "row source code version does not match dataset metadata"
+        )
     _require_sha256("config_digest", row.config_digest)
     _require_sha256("source_trajectory_sha256", row.source_trajectory_sha256)
 
@@ -294,6 +298,17 @@ def _validate_episode_manifest(
     rows: list[TransitionRow],
     metadata: DatasetMetadata,
 ) -> None:
+    if type(episode.seed) is not int or episode.seed < 0:
+        raise ValueError(
+            "episode manifest seed must be a non-negative integer"
+        )
+    if (
+        type(episode.transition_count) is not int
+        or episode.transition_count <= 0
+    ):
+        raise ValueError(
+            "episode manifest transition_count must be a positive integer"
+        )
     first = rows[0]
     expected = (
         first.split,
