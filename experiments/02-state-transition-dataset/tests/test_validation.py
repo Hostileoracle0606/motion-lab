@@ -215,6 +215,8 @@ def _valid_dataset() -> tuple[
     metadata = DatasetMetadata(
         schema_version=1,
         dataset_version=DATASET_VERSION,
+        dataset_config_file="dataset-v1.toml",
+        dataset_config_sha256="9" * 64,
         builder_code_version="a" * 40,
         builder_working_tree_dirty=False,
         build_command="uv run python build_dataset.py",

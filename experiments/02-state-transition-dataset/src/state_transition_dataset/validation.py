@@ -156,6 +156,8 @@ def _validate_metadata(metadata: DatasetMetadata) -> None:
             f"unsupported dataset schema version: {metadata.schema_version}"
         )
     _require_nonempty("dataset_version", metadata.dataset_version)
+    _require_nonempty("dataset_config_file", metadata.dataset_config_file)
+    _require_sha256("dataset_config_sha256", metadata.dataset_config_sha256)
     if not _GIT_SHA_PATTERN.fullmatch(metadata.builder_code_version):
         raise ValueError("builder_code_version must be a full lowercase Git SHA")
     if type(metadata.builder_working_tree_dirty) is not bool:

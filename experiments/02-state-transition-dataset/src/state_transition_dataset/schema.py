@@ -57,6 +57,8 @@ class EpisodeManifest:
 class DatasetMetadata:
     schema_version: int
     dataset_version: str
+    dataset_config_file: str
+    dataset_config_sha256: str
     builder_code_version: str
     builder_working_tree_dirty: bool
     build_command: str
