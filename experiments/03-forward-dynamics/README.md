@@ -65,6 +65,12 @@ and torque limit must also be strictly positive. Applied actions outside the
 limit raise `ValueError` rather than being silently clipped. Non-finite
 computed predictions and residuals are rejected too.
 
+Accepted real scalars are converted to ordinary binary64 Python floats before
+arithmetic, including NumPy integers and single-precision floats. This avoids
+fixed-width overflow in torque limits, subtraction, and error summaries.
+Large integers may lose precision in that conversion; arbitrary-precision
+integer or extended-precision dynamics are outside this float-valued contract.
+
 | Adapter ID | Predicted position | Predicted velocity |
 | --- | --- | --- |
 | `no_change` | `q` | `v` |

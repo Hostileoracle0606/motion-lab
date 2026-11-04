@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 
+import numpy as np
 import pytest
 
 from forward_dynamics.baselines import ConstantVelocityPredictor, NoChangePredictor
@@ -85,3 +86,21 @@ def test_constant_velocity_rejects_non_finite_computed_position() -> None:
             DynamicsState(1e308, 1e308), 0.0,
             replace(CONTEXT, control_interval_s=2.0),
         )
+
+
+@pytest.mark.parametrize("predictor", PREDICTORS)
+def test_numpy_minimum_integer_torque_cannot_bypass_limit(predictor) -> None:
+    with pytest.raises(ValueError, match="torque"):
+        predictor.predict(
+            DynamicsState(0.0, 0.0), np.int64(-(2**63)), CONTEXT,
+        )
+
+
+def test_constant_velocity_normalizes_fixed_width_scalars_before_arithmetic() -> None:
+    result = ConstantVelocityPredictor().predict(
+        DynamicsState(np.int64(2**62), np.int64(2**62)), 0.0,
+        replace(CONTEXT, control_interval_s=np.int64(2)),
+    )
+
+    assert result.position_rad == float(3 * 2**62)
+    assert result.velocity_rad_s == float(2**62)

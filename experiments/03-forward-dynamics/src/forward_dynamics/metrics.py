@@ -32,8 +32,8 @@ def residual(predicted: DynamicsState, expected: DynamicsState) -> StateResidual
     validate_state(predicted)
     validate_state(expected)
     result = StateResidual(
-        position_error_rad=predicted.position_rad - expected.position_rad,
-        velocity_error_rad_s=predicted.velocity_rad_s - expected.velocity_rad_s,
+        position_error_rad=float(predicted.position_rad) - float(expected.position_rad),
+        velocity_error_rad_s=float(predicted.velocity_rad_s) - float(expected.velocity_rad_s),
     )
     _validate_residual(result)
     return result
@@ -50,8 +50,8 @@ def summarize_errors(errors: tuple[StateResidual, ...]) -> ErrorSummary:
         raise ValueError("errors must contain at least one residual")
     for error in errors:
         _validate_residual(error)
-    position = _component_summary(tuple(error.position_error_rad for error in errors))
-    velocity = _component_summary(tuple(error.velocity_error_rad_s for error in errors))
+    position = _component_summary(tuple(float(error.position_error_rad) for error in errors))
+    velocity = _component_summary(tuple(float(error.velocity_error_rad_s) for error in errors))
     return ErrorSummary(len(errors), *position, *velocity)
 
 

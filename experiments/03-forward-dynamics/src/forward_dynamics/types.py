@@ -78,5 +78,7 @@ def validate_prediction_inputs(
         if value <= 0.0:
             raise ValueError(f"{name} must be greater than zero")
     validate_finite_scalar("applied_torque_nm", applied_torque_nm)
-    if abs(applied_torque_nm) > context.torque_limit_nm:
+    # Real includes fixed-width NumPy scalars: normalize before abs/arithmetic
+    # so the minimum signed integer cannot overflow and bypass this limit.
+    if abs(float(applied_torque_nm)) > float(context.torque_limit_nm):
         raise ValueError("applied_torque_nm exceeds torque_limit_nm")

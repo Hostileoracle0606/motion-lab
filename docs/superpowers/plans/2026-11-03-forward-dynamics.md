@@ -95,6 +95,10 @@ For each implementation ticket, create its focused failing tests, observe the ex
 shared input validation and package discovery because #11 was still open.
 The T1 MuJoCo adapter and dataset converter remain pending. All 114 focused
 tests and the 346-test repository suite passed before independent review.
+Review found fixed-width numeric overflow; seven new regression cases failed
+before scalar normalization fixed it. Final verification passed 121 focused
+tests (warnings treated as errors) and all 353 repository tests. The wheel
+also built and passed isolated imports/prediction without MuJoCo loading.
 
 **Background:** A simulator reference establishes consistency, but its error alone says little about predictive usefulness. No-change and constant-velocity baselines give interpretable comparisons and make the predictor seam real. Metrics must expose position and velocity separately.
 

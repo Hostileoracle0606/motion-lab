@@ -21,7 +21,7 @@ class NoChangePredictor:
     ) -> DynamicsState:
         """Validate the applied action and context, then return the current state."""
         validate_prediction_inputs(state, applied_torque_nm, context)
-        return state
+        return DynamicsState(float(state.position_rad), float(state.velocity_rad_s))
 
 
 class ConstantVelocityPredictor:
@@ -38,8 +38,11 @@ class ConstantVelocityPredictor:
         """Predict q + v*dt without wrapping or clamping the limited hinge."""
         validate_prediction_inputs(state, applied_torque_nm, context)
         predicted = DynamicsState(
-            position_rad=state.position_rad + state.velocity_rad_s * context.control_interval_s,
-            velocity_rad_s=state.velocity_rad_s,
+            position_rad=(
+                float(state.position_rad)
+                + float(state.velocity_rad_s) * float(context.control_interval_s)
+            ),
+            velocity_rad_s=float(state.velocity_rad_s),
         )
         validate_state(predicted)
         return predicted

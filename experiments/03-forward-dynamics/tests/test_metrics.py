@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 from forward_dynamics.metrics import StateResidual, residual, summarize_errors
@@ -84,3 +85,29 @@ def test_ordinary_metrics_import_does_not_import_mujoco(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("predicted", "expected", "wanted"),
+    [
+        (np.int64(2**62), np.int64(-(2**62)), float(2**63)),
+        (np.uint64(1), np.uint64(3), -2.0),
+        (np.float32(3e38), np.float32(-3e38), 6e38),
+    ],
+)
+def test_residual_avoids_fixed_width_subtraction_overflow(predicted, expected, wanted) -> None:
+    result = residual(DynamicsState(predicted, predicted), DynamicsState(expected, expected))
+
+    assert result.position_error_rad == pytest.approx(wanted)
+    assert result.velocity_error_rad_s == pytest.approx(wanted)
+
+
+def test_summary_avoids_fixed_width_absolute_value_overflow() -> None:
+    result = summarize_errors((StateResidual(np.int64(-(2**63)), np.int64(-(2**63))),))
+
+    assert result.position_mae_rad == float(2**63)
+    assert result.position_rmse_rad == float(2**63)
+    assert result.position_max_abs_rad == float(2**63)
+    assert result.velocity_mae_rad_s == float(2**63)
+    assert result.velocity_rmse_rad_s == float(2**63)
+    assert result.velocity_max_abs_rad_s == float(2**63)
