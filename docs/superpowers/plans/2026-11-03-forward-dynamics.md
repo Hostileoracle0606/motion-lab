@@ -139,6 +139,18 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 
 **Depends on:** T1, T2
 
+**Implementation note:** Issue #13 stacks on unmerged #12 and includes T1's
+required dataset converter and supported MuJoCo reference. The one-step
+pipeline, strict evidence audit and CLI pass the 411-test repository suite.
+Independent review identified ignored-input provenance requiring blob checks
+in addition to Git status; regression tests cover refusal and authorization.
+After that fix, all 413 repository tests passed. The only deferred review
+minor concerns the unused future analytical timestep guard, recorded in T5.
+Existing output directories are refused; fresh bundles are staged, audited
+and renamed. Extra focused modules separate adapter assembly, serialization
+and source provenance. Rollouts and the complete Stage 3 comparison remain
+pending; this is not a Stage 3 completion claim.
+
 **Background:** The first two tickets provide predictors and metrics. This ticket is the first complete experiment command: independently validate Experiment 02, evaluate observed-state one-step predictions, and preserve sufficient evidence to audit every aggregate. Training, validation, and test membership already exists and must remain intact.
 
 **Files:**
@@ -169,11 +181,11 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 
 **Execution:**
 
-- [ ] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
-- [ ] Implement this ticket's interfaces and objectives.
-- [ ] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_config.py experiments/03-forward-dynamics/tests/test_evaluation.py experiments/03-forward-dynamics/tests/test_evidence.py experiments/03-forward-dynamics/tests/test_cli.py`; expect success.
-- [ ] Run `uv run python experiments/03-forward-dynamics/scripts/run_evaluation.py --help`; expect ordinary package/CLI execution to succeed.
-- [ ] Review the acceptance criteria and commit scoped files with `feat: evaluate held-out one-step dynamics`.
+- [x] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
+- [x] Implement this ticket's interfaces and objectives.
+- [x] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_config.py experiments/03-forward-dynamics/tests/test_evaluation.py experiments/03-forward-dynamics/tests/test_evidence.py experiments/03-forward-dynamics/tests/test_cli.py`; expect success.
+- [x] Run `uv run python experiments/03-forward-dynamics/scripts/run_evaluation.py --help`; expect ordinary package/CLI execution to succeed.
+- [x] Review the acceptance criteria and commit scoped files with `feat: evaluate held-out one-step dynamics`.
 
 **Learning objective:** Distinguish a held-out protocol from fitting a model, and distinguish dataset source, dataset builder, evaluator and publication provenance.
 
@@ -223,6 +235,11 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 ### T5: Add an independent analytical RK4 dynamics baseline
 
 **Depends on:** T3
+
+**Deferred minor from #13:** Require a positive integer substep count when
+validating future analytical timesteps. The current closeness test accepts an
+oversized step such as `1e100` as approximately zero substeps. Those settings
+are unused in one-step evaluation; fix this before enabling analytical runs.
 
 **Background:** MuJoCo consistency cannot tell us how an independent model behaves. A zero-gravity damped rotor provides a useful known-parameter baseline and an exact solution for isolating integration error. Its omission of soft joint-limit/contact forces must remain visible in comparison.
 
