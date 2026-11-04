@@ -91,6 +91,11 @@ For each implementation ticket, create its focused failing tests, observe the ex
 
 **Depends on:** T1
 
+**Implementation note:** Issue #12 includes the minimal T1 state/context/protocol,
+shared input validation and package discovery because #11 was still open.
+The T1 MuJoCo adapter and dataset converter remain pending. All 114 focused
+tests and the 346-test repository suite passed before independent review.
+
 **Background:** A simulator reference establishes consistency, but its error alone says little about predictive usefulness. No-change and constant-velocity baselines give interpretable comparisons and make the predictor seam real. Metrics must expose position and velocity separately.
 
 **Files:**
@@ -117,10 +122,10 @@ For each implementation ticket, create its focused failing tests, observe the ex
 
 **Execution:**
 
-- [ ] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
-- [ ] Implement this ticket's interfaces and objectives.
-- [ ] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_baselines.py experiments/03-forward-dynamics/tests/test_metrics.py`; expect success.
-- [ ] Review the acceptance criteria and commit scoped files with `feat: add dynamics baselines and component metrics`.
+- [x] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
+- [x] Implement this ticket's interfaces and objectives.
+- [x] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_baselines.py experiments/03-forward-dynamics/tests/test_metrics.py`; expect success.
+- [x] Review the acceptance criteria and commit scoped files with `feat: add dynamics baselines and component metrics`.
 
 **Learning objective:** Explain why tiny one-step position error can coexist with bad velocity prediction, and why a limited joint needs a different angle-error convention from a continuous joint.
 
