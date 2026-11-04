@@ -147,6 +147,8 @@ directory. Configured dataset/model paths resolve relative to the TOML file.
 The config, inputs and evaluator sources must reside in this checkout.
 `--allow-dirty` permits exploratory runs with uncommitted changes, labels them,
 and records that permission; it is not a clean-reproduction claim.
+Input bytes absent from or different from the recorded commit count as dirty
+even when Git status omits an ignored config or an assume-unchanged file.
 
 The versioned protocol declares `scope = "one_step"`, dataset identity,
 environment checksum, adapters, tolerance `1e-12`, future rollout horizons

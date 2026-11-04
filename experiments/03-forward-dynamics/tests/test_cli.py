@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import sys
 import shutil
+import tempfile
 
 import pytest
 
@@ -114,3 +115,30 @@ def test_output_cannot_be_nested_inside_any_participating_source_tree(monkeypatc
     with pytest.raises(ValueError, match="overlap"):
         run_evaluation(DEFAULT_CONFIG, output, allow_dirty=True)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("allow_dirty", [False, True])
+def test_ignored_config_requires_and_honors_dirty_authorization(monkeypatch, allow_dirty) -> None:
+    original = provenance.git_output
+    # Model an otherwise clean checkout: the only participating input absent
+    # from HEAD is a valid config in Git-ignored artifacts/.
+    monkeypatch.setattr(provenance, "git_output", lambda *args: "" if args[0] == "status" else original(*args))
+    artifacts = ROOT / "artifacts"
+    artifacts.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="ignored-protocol-", dir=artifacts) as temporary:
+        config_file = Path(temporary) / "evaluation.toml"
+        text = DEFAULT_CONFIG.read_text().replace(
+            '"../../02-state-transition-dataset/data/dataset-v1"',
+            f'"{ROOT / "experiments/02-state-transition-dataset/data/dataset-v1"}"',
+        ).replace('"../../01-feedback-control/models/one_link.xml"',
+                  f'"{ROOT / "experiments/01-feedback-control/models/one_link.xml"}"')
+        config_file.write_text(text)
+        config = generation.load_evaluation_config(config_file)
+        if not allow_dirty:
+            with pytest.raises(ValueError, match="uncommitted"):
+                provenance.capture_provenance(config_file, config, False)
+        else:
+            recorded = provenance.capture_provenance(config_file, config, True)
+            assert recorded["working_tree_dirty"] is True
+            assert recorded["allow_dirty"] is True
+            provenance.validate_provenance(recorded, config_file, config)

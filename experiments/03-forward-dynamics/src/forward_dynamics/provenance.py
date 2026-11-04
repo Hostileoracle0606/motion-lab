@@ -69,6 +69,18 @@ def recorded_command(config_file: str, allow_dirty: bool) -> str:
     return shlex.join(command)
 
 
+def inputs_match_commit(entries: list[dict], commit: str) -> bool:
+    """Git status omits ignored/assume-unchanged inputs; inspect their blobs."""
+    for entry in entries:
+        try:
+            committed = git_bytes("show", f"{commit}:{entry['path']}")
+        except ValueError:
+            return False
+        if hashlib.sha256(committed).hexdigest() != entry["sha256"]:
+            return False
+    return True
+
+
 def capture_provenance(config_path: Path, config: EvaluationConfig, allow_dirty: bool) -> dict:
     if type(allow_dirty) is not bool:
         raise ValueError("allow_dirty must be a boolean")
@@ -78,12 +90,17 @@ def capture_provenance(config_path: Path, config: EvaluationConfig, allow_dirty:
         raise ValueError("working-tree changes are uncommitted; commit them or pass --allow-dirty")
     dataset = load_and_validate_dataset(config.dataset_dir, config.dataset_version)
     config_file = relative_path(config_path)
+    entries = input_entries(config_path, config)
+    if not dirty:
+        dirty = not inputs_match_commit(entries, commit)
+    if dirty and not allow_dirty:
+        raise ValueError("evaluation inputs are uncommitted; commit them or pass --allow-dirty")
     return {
         "evaluator_commit": commit, "working_tree_dirty": dirty, "allow_dirty": allow_dirty,
         "config_file": config_file, "command": recorded_command(config_file, allow_dirty),
         "dataset_source_commit": dataset.manifest.metadata.source_code_version,
         "dataset_builder_commit": dataset.manifest.metadata.builder_code_version,
-        "inputs": input_entries(config_path, config),
+        "inputs": entries,
         "runtime": {"python": platform.python_version(), "mujoco": version("mujoco"),
                     "os": platform.system(), "architecture": platform.machine()},
     }
@@ -109,11 +126,8 @@ def validate_provenance(payload: dict, config_path: Path, config: EvaluationConf
     require_equal(payload["config_file"], relative_path(config_path), "config file identity")
     require_equal(payload["command"], recorded_command(payload["config_file"], payload["allow_dirty"]), "recorded command")
     require_equal(payload["inputs"], input_entries(config_path, config), "input checksums")
-    if not payload["working_tree_dirty"]:
-        for entry in payload["inputs"]:
-            committed = git_bytes("show", f"{commit}:{entry['path']}")
-            if hashlib.sha256(committed).hexdigest() != entry["sha256"]:
-                raise ValueError("clean evaluator commit contradicts input bytes")
+    if not payload["working_tree_dirty"] and not inputs_match_commit(payload["inputs"], commit):
+        raise ValueError("clean evaluator commit contradicts input bytes")
     runtime = payload["runtime"]
     require_fields(runtime, {"python", "mujoco", "os", "architecture"}, "runtime")
     if (any(not isinstance(value, str) or not value for value in runtime.values()) or

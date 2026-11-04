@@ -142,6 +142,10 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 **Implementation note:** Issue #13 stacks on unmerged #12 and includes T1's
 required dataset converter and supported MuJoCo reference. The one-step
 pipeline, strict evidence audit and CLI pass the 411-test repository suite.
+Independent review identified ignored-input provenance requiring blob checks
+in addition to Git status; regression tests cover refusal and authorization.
+After that fix, all 413 repository tests passed. The only deferred review
+minor concerns the unused future analytical timestep guard, recorded in T5.
 Existing output directories are refused; fresh bundles are staged, audited
 and renamed. Extra focused modules separate adapter assembly, serialization
 and source provenance. Rollouts and the complete Stage 3 comparison remain
@@ -231,6 +235,11 @@ pending; this is not a Stage 3 completion claim.
 ### T5: Add an independent analytical RK4 dynamics baseline
 
 **Depends on:** T3
+
+**Deferred minor from #13:** Require a positive integer substep count when
+validating future analytical timesteps. The current closeness test accepts an
+oversized step such as `1e100` as approximately zero substeps. Those settings
+are unused in one-step evaluation; fix this before enabling analytical runs.
 
 **Background:** MuJoCo consistency cannot tell us how an independent model behaves. A zero-gravity damped rotor provides a useful known-parameter baseline and an exact solution for isolating integration error. Its omission of soft joint-limit/contact forces must remain visible in comparison.
 
