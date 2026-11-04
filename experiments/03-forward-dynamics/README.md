@@ -11,8 +11,11 @@ two deterministic baselines and pure error metrics.
 one-step evaluation command, saved predictions, provenance and independent
 evidence loading. It includes the required
 [#11](https://github.com/Hostileoracle0606/motion-lab/issues/11) dataset converter
-and MuJoCo reference. Recursive rollouts, analytical integration, comparison
-reports and Stage 3 clean-reproduction closure remain planned.
+and MuJoCo reference. Issue
+[#14](https://github.com/Hostileoracle0606/motion-lab/issues/14) implements
+recursive recorded-action rollout evaluation as a Python API. Analytical
+integration, rollout CLI/evidence integration, comparison reports and Stage 3
+clean-reproduction closure remain planned.
 
 The [design](../../docs/superpowers/specs/2026-11-03-forward-dynamics-design.md)
 and [ticket plan](../../docs/superpowers/plans/2026-11-03-forward-dynamics.md)
@@ -131,6 +134,70 @@ boundaries. These pure metric functions do not choose groups, select episodes,
 perform file I/O, or evaluate
 the held-out dataset.
 
+## Recursive open-loop evaluation
+
+`rollouts.evaluate_rollouts(cases, predictor, horizons)` starts at every eligible
+recorded state and feeds each predicted state into the next call. Each call
+uses that step's recorded `applied_torque_nm`; it never recomputes a controller
+action or replaces an intermediate prediction with an observation. This tests
+conditional prediction under a fixed action sequence. It does not measure how
+a controller would respond to a different predicted trajectory.
+
+The frozen protocol's horizons `(1, 5, 10, 25, 50, 100)` correspond to
+`(0.01, 0.05, 0.10, 0.25, 0.50, 1.00) s` at the dataset's `0.010 s` interval.
+The API also accepts other increasing, unique positive integer horizons;
+booleans and empty horizon tuples are rejected. For example:
+
+```python
+from pathlib import Path
+from forward_dynamics.baselines import ConstantVelocityPredictor
+from forward_dynamics.dataset import load_prediction_cases
+from forward_dynamics.rollouts import evaluate_rollouts
+
+cases = load_prediction_cases(
+    Path("experiments/02-state-transition-dataset/data/dataset-v1"),
+    "experiment-02-transition-v1",
+)
+evaluation = evaluate_rollouts(
+    cases, ConstantVelocityPredictor(), (1, 5, 10, 25, 50, 100),
+)
+```
+
+`RolloutEvaluation.predictions` retains `RolloutPrediction` records with
+split/episode/scenario/controller/seed identity, `start_step_index`,
+`horizon_steps`, `horizon_s`, `predictor_id`, `predicted_endpoint_state`,
+`expected_endpoint_state`, and the shared physical-unit `residual`. A window
+starting at step `s` with horizon `h` applies the torques at steps `s` through
+`s+h-1` and compares against `expected_next_state` at step `s+h-1`. Horizon-one
+predictions match the corresponding observed-state one-step calls.
+
+`RolloutEvaluation.windows` independently retains a `WindowCount` for every
+episode/horizon, including horizons without predictions. For `N` supplied
+transitions, `eligible_count = max(N-h+1, 0)` and
+`unavailable_count = N-eligible_count`. All predictors receive the same eligible
+windows. A three-transition episode at horizons `(1, 2, 5)` therefore has
+eligible counts `(3, 2, 0)` and unavailable counts `(0, 1, 3)`. The dataset's
+two failed 70-transition episodes remain visible at horizon 100 with zero
+eligible and 70 unavailable starts each.
+
+Cases within each episode must have contiguous unique indices, consistent
+identity/context and state continuity. Continuity uses the dataset's absolute
+tolerance `1e-12` separately in radians and radians per second, with zero
+relative tolerance. No window crosses an episode, split, or terminal boundary;
+the final terminal/truncated transition may be its endpoint. Contiguous slices
+may start above step zero and end before a boundary, but their counts describe
+only those supplied rows. Full-coverage reporting must pass complete episodes
+from `load_prediction_cases`. Records are ordered by dataset split order,
+episode ID, increasing horizon, then start step.
+
+Finite predictions beyond nominal joint limits are retained without wrapping
+or clipping. Every intermediate prediction is validated and its real scalars
+are normalized to Python floats before reuse. Invalid inputs, non-finite
+predictions or residuals fail explicitly with predictor, episode and step
+context; difficult windows are never silently removed. Overlapping windows
+share transitions and are correlated, so their counts are not independent
+trials. This API does not publish a rollout evidence bundle or Stage 3 result.
+
 ## Run and audit a one-step evaluation
 
 Commit source/config changes before a reproducible run. From the repository
@@ -208,6 +275,8 @@ writers. No published Stage 3 report or physical-system validation is implied.
 `dataset.py` preserves the independently validated Experiment 02 contract.
 `mujoco_predictor.py` owns fresh simulator queries. `config.py` owns the frozen
 protocol; `evaluation.py` owns observed-state calls and grouped summaries.
+`rollouts.py` owns recursive recorded-action windows, endpoint predictions and
+eligible/unavailable counts independently of publication.
 `provenance.py` captures/checks source identity, `serialization.py` handles
 strict finite JSON, and `evidence.py` audits saved derivations.
 `generation.py` owns staging/publication and the CLI owns user-facing errors.
@@ -226,5 +295,8 @@ the excursion and measure each coordinate in its own units.
 
 If a predictor is wrong on the first transition, which state does the next
 one-step call receive? The next recorded observation, not the previous
-prediction. This isolates local transition error; #14 will test accumulated
-error under recorded future actions.
+prediction. This isolates local transition error. A recursive rollout instead
+receives its previous prediction, so local error can affect every later state.
+Why do recorded future actions still fail to demonstrate controller behavior?
+Those actions were chosen for the recorded trajectory; a controller observing
+the drifting prediction could choose different torques.
