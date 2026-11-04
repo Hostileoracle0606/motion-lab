@@ -30,6 +30,7 @@ def test_config_resolves_inputs_from_file_not_current_directory(monkeypatch, tmp
         ("scope", '"full"'), ("simulator_absolute_tolerance", "nan"),
         ("simulator_absolute_tolerance", "true"), ("simulator_absolute_tolerance", "-1.0"),
         ("analytical_timesteps_s", "[0.002, 0.002]"), ("analytical_timesteps_s", "[false]"),
+        ("analytical_timesteps_s", "[1e100]"),
         ("environment_version", '"' + "0" * 64 + '"'),
     ],
 )

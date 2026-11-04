@@ -71,7 +71,8 @@ def load_evaluation_config(path: Path) -> EvaluationConfig:
         raise ValueError("analytical_timesteps_s must be unique")
     for step in steps:
         ratio = 0.010 / step
-        if not math.isfinite(ratio) or not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=1e-12):
+        if (not math.isfinite(ratio) or round(ratio) <= 0
+                or not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=1e-12)):
             raise ValueError("analytical timesteps must divide the control interval")
     return EvaluationConfig(
         1, "one_step", raw["dataset_version"], dataset_dir, model_path,

@@ -11,8 +11,11 @@ two deterministic baselines and pure error metrics.
 one-step evaluation command, saved predictions, provenance and independent
 evidence loading. It includes the required
 [#11](https://github.com/Hostileoracle0606/motion-lab/issues/11) dataset converter
-and MuJoCo reference. Recursive rollouts, analytical integration, comparison
-reports and Stage 3 clean-reproduction closure remain planned.
+and MuJoCo reference. [#15](https://github.com/Hostileoracle0606/motion-lab/issues/15)
+adds an independent analytical RK4 adapter and static plant-parameter extraction.
+The analytical adapter is available through its Python interface; evaluation
+registry integration, recursive rollouts, comparison reports and Stage 3
+clean-reproduction closure remain planned.
 
 The [design](../../docs/superpowers/specs/2026-11-03-forward-dynamics-design.md)
 and [ticket plan](../../docs/superpowers/plans/2026-11-03-forward-dynamics.md)
@@ -89,6 +92,67 @@ contract even when position and velocity dimensions happen to match.
 For `q = 1 rad`, `v = 2 rad/s`, and `dt = 0.01 s`, these return `(1, 2)` and
 `(1.02, 2)` respectively. Position is never wrapped or clamped: an excursion
 beyond the nominal joint range must remain visible to evaluation.
+
+## Independent analytical dynamics
+
+`plant.py` owns the frozen `PlantParameters(environment_id, environment_version,
+inertia_kg_m2, damping_nm_s_per_rad)` record. `load_plant_parameters(model_path,
+expected_environment_version)` verifies SHA-256 before compiling the
+self-contained model with MuJoCo 3.16.0. For the authoritative Experiment 01
+XML above it extracts `J = 0.23242512112403102 kg m^2` and
+`b = 0.05 N m s/rad`; `J` includes `0.01 kg m^2` of joint armature.
+These are known model coefficients, with no fitting to transitions.
+
+For unit hinge axis `a`, body-frame COM offset from the joint `r`, principal
+inertias `I`, body mass `m`, and principal-to-body rotation `R`, extraction uses:
+
+```text
+J = a^T R diag(I) R^T a + m * |r cross a|^2 + armature
+```
+
+Thus the principal inertia frame and parallel-axis shift both matter. Static
+kinematics and composite rigid-body inertia independently cross-check this
+calculation against the compiled generalized mass matrix at five angles,
+including outside the joint limits. Extraction supports one rigid moving body,
+one hinge and one unit-gain direct torque motor, zero gravity, no fluid forces,
+spring, friction loss, tendons, equalities, plugins or actuator activation.
+Attached bodies, external model assets and altered simulator flags are refused.
+This is a narrow damped-rotor extraction contract, not a general MJCF loader.
+
+`analytical.py` owns `AnalyticalRK4Predictor(parameters, integration_timestep_s)`:
+
+```text
+dq/dt = v
+dv/dt = (u - b*v) / J
+```
+
+It uses fixed-step classical fourth-order Runge–Kutta with the applied torque
+held constant throughout the control interval. The frozen experiment steps are
+`0.002`, `0.001` and `0.0005 s`, yielding IDs `analytical_rk4_0.002`,
+`analytical_rk4_0.001` and `analytical_rk4_0.0005`. An interval must contain a
+positive integer number of integration steps (at most 10,000); the predictor
+checks the context's identity against the parameter record. Inertia is finite
+and positive, damping finite and nonnegative. Arithmetic uses ordinary Python
+floats, and non-finite results fail evaluation.
+
+Neither importing the parameter record nor importing/running the analytical
+predictor imports MuJoCo. Only explicit parameter extraction needs the simulator;
+prediction queries no simulator forces and retains no state between calls.
+
+Tests isolate numerical integration error with the exact constant-torque rotor:
+for `b > 0`, let `v_inf = u/b` and `d = exp(-b*t/J)`. Then
+`v(t) = v_inf + (v0-v_inf)*d` and
+`q(t) = q0 + v_inf*t + (v0-v_inf)*(J/b)*(1-d)`.
+For `b = 0`, `v(t) = v0 + (u/J)*t` and
+`q(t) = q0 + v0*t + 0.5*(u/J)*t^2`.
+Tests cover both `0.01 s` and `1 s` and check decreasing integration error
+above floating-point noise; they do not tune steps using dataset errors.
+
+The ODE omits MuJoCo soft joint-limit and contact forces. It never wraps or
+clamps position, drops boundary failures, or changes the common evaluation
+membership. A finite prediction beyond a limit is retained. More accurate
+integration of these simplified equations cannot restore missing forces:
+exact-ODE numerical error and disagreement with MuJoCo are different quantities.
 
 ## Metric definitions and ownership
 
@@ -211,6 +275,8 @@ protocol; `evaluation.py` owns observed-state calls and grouped summaries.
 `provenance.py` captures/checks source identity, `serialization.py` handles
 strict finite JSON, and `evidence.py` audits saved derivations.
 `generation.py` owns staging/publication and the CLI owns user-facing errors.
+`plant.py` extracts static physical coefficients; `analytical.py` integrates
+the simplified unconstrained ODE independently of simulator dynamics.
 
 ## Learning checkpoint
 
