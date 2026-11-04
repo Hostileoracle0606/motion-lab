@@ -139,6 +139,14 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 
 **Depends on:** T1, T2
 
+**Implementation note:** Issue #13 stacks on unmerged #12 and includes T1's
+required dataset converter and supported MuJoCo reference. The one-step
+pipeline, strict evidence audit and CLI pass the 411-test repository suite.
+Existing output directories are refused; fresh bundles are staged, audited
+and renamed. Extra focused modules separate adapter assembly, serialization
+and source provenance. Rollouts and the complete Stage 3 comparison remain
+pending; this is not a Stage 3 completion claim.
+
 **Background:** The first two tickets provide predictors and metrics. This ticket is the first complete experiment command: independently validate Experiment 02, evaluate observed-state one-step predictions, and preserve sufficient evidence to audit every aggregate. Training, validation, and test membership already exists and must remain intact.
 
 **Files:**
@@ -169,11 +177,11 @@ also built and passed isolated imports/prediction without MuJoCo loading.
 
 **Execution:**
 
-- [ ] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
-- [ ] Implement this ticket's interfaces and objectives.
-- [ ] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_config.py experiments/03-forward-dynamics/tests/test_evaluation.py experiments/03-forward-dynamics/tests/test_evidence.py experiments/03-forward-dynamics/tests/test_cli.py`; expect success.
-- [ ] Run `uv run python experiments/03-forward-dynamics/scripts/run_evaluation.py --help`; expect ordinary package/CLI execution to succeed.
-- [ ] Review the acceptance criteria and commit scoped files with `feat: evaluate held-out one-step dynamics`.
+- [x] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
+- [x] Implement this ticket's interfaces and objectives.
+- [x] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_config.py experiments/03-forward-dynamics/tests/test_evaluation.py experiments/03-forward-dynamics/tests/test_evidence.py experiments/03-forward-dynamics/tests/test_cli.py`; expect success.
+- [x] Run `uv run python experiments/03-forward-dynamics/scripts/run_evaluation.py --help`; expect ordinary package/CLI execution to succeed.
+- [x] Review the acceptance criteria and commit scoped files with `feat: evaluate held-out one-step dynamics`.
 
 **Learning objective:** Distinguish a held-out protocol from fitting a model, and distinguish dataset source, dataset builder, evaluator and publication provenance.
 
