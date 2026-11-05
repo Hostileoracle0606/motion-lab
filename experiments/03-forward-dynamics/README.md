@@ -16,9 +16,11 @@ and MuJoCo reference. Issue
 recursive recorded-action rollout evaluation as a Python API.
 [#15](https://github.com/Hostileoracle0606/motion-lab/issues/15)
 adds an independent analytical RK4 adapter and static plant-parameter extraction.
-Both features are available through Python interfaces; evaluation registry and
-CLI/evidence integration, comparison reports and Stage 3
-clean-reproduction closure remain planned.
+Issue [#16](https://github.com/Hostileoracle0606/motion-lab/issues/16) integrates
+all six adapters into full one-step and recursive-rollout evidence and derived
+comparison reports. Stage 3 clean-reproduction closure remains planned under
+[#17](https://github.com/Hostileoracle0606/motion-lab/issues/17); implementation
+and exploratory dirty runs do not establish that gate.
 
 The [design](../../docs/superpowers/specs/2026-11-03-forward-dynamics-design.md)
 and [ticket plan](../../docs/superpowers/plans/2026-11-03-forward-dynamics.md)
@@ -260,9 +262,10 @@ are normalized to Python floats before reuse. Invalid inputs, non-finite
 predictions or residuals fail explicitly with predictor, episode and step
 context; difficult windows are never silently removed. Overlapping windows
 share transitions and are correlated, so their counts are not independent
-trials. This API does not publish a rollout evidence bundle or Stage 3 result.
+trials. The full evaluation command below publishes these records alongside
+one-step predictions; the Python API alone does not publish a Stage 3 result.
 
-## Run and audit a one-step evaluation
+## Run and audit the full comparison
 
 Commit source/config changes before a reproducible run. From the repository
 root, choose a fresh output directory:
@@ -270,7 +273,10 @@ root, choose a fresh output directory:
 ```bash
 uv run python experiments/03-forward-dynamics/scripts/run_evaluation.py \
   --config experiments/03-forward-dynamics/configs/evaluation-v1.toml \
-  --output artifacts/experiment-03-one-step-v1
+  --output artifacts/experiment-03-evaluation-v1
+uv run python experiments/03-forward-dynamics/scripts/generate_report.py \
+  --input artifacts/experiment-03-evaluation-v1 \
+  --output artifacts/experiment-03-evaluation-v1/report
 ```
 
 `--config` and `--output` may be absolute paths when running from another
@@ -281,16 +287,18 @@ and records that permission; it is not a clean-reproduction claim.
 Input bytes absent from or different from the recorded commit count as dirty
 even when Git status omits an ignored config or an assume-unchanged file.
 
-The versioned protocol declares `scope = "one_step"`, dataset identity,
-environment checksum, adapters, tolerance `1e-12`, future rollout horizons
-`[1, 5, 10, 25, 50, 100]`, and future analytical timesteps
-`[0.002, 0.001, 0.0005] s`. The future settings are recorded but unused in this
-scope. No model is fit, no normalization is learned and no settings are chosen
-from test results.
+The default versioned protocol declares `scope = "full"`, dataset identity,
+environment checksum, all six adapters, tolerance `1e-12`, rollout horizons
+`[1, 5, 10, 25, 50, 100]`, and analytical timesteps
+`[0.002, 0.001, 0.0005] s`. Full scope refuses partial adapter/horizon/step
+lists. `configs/one-step-v1.toml` explicitly preserves the original three-adapter
+one-step mode; it cannot produce a full comparison report. No model is fit,
+no normalization is learned and no settings are chosen from test results.
 
 The validated dataset contains 940 train, 800 validation and 800 test rows.
-All 2,540 transitions, including terminal rows, are evaluated by all three
-adapters, producing 7,620 records. Each call starts from the observed state,
+All 2,540 transitions, including terminal rows, are evaluated by all six
+adapters, producing 15,240 one-step records and 82,908 rollout endpoints.
+Each one-step call starts from the observed state,
 so model error is corrected before the next recorded transition. This differs
 from recursive rollout evaluation, which feeds a prediction into the next
 prediction. Paired controller episodes and whole-scenario splits are preserved.
@@ -300,20 +308,39 @@ The output directory contains:
 - `one_step.jsonl`: identity, current state, applied action/context, expected
   and predicted next state, residual and terminal boundary for every prediction.
 - `evaluation.json`: per-episode/scenario/controller/split summaries, counts,
-  adapter parameters, frozen protocol and source/runtime provenance.
-- `manifest.json`: schema/scope and SHA-256 of the two saved record files.
+  adapter and physical parameters, episode outcomes, frozen protocol and
+  source/runtime provenance. Its 48 episode/horizon coverage records retain
+  eligible/unavailable starts even for zero-eligible failed episodes.
+- `rollouts.jsonl`: identities, horizon, predicted/expected endpoints and
+  residuals for every complete recorded-action window.
+- `manifest.json`: schema/scope and SHA-256 of the three evidence files.
+- `report/`: `report.md`, full-precision `one_step.csv` and `rollouts.csv`,
+  plus `one_step_position.png`, `one_step_velocity.png`,
+  `rollout_position.png` and `rollout_velocity.png`. Linear axes preserve exact
+  zero reference errors; all series show counts. Empty metrics denote zero
+  eligible windows, never invented zero errors.
 
 Audit the saved data independently:
 
 ```bash
-uv run python -c "from pathlib import Path; from forward_dynamics.evidence import load_evaluation_evidence; e = load_evaluation_evidence(Path('artifacts/experiment-03-one-step-v1')); print(e.evaluation['prediction_count'])"
+uv run python -c "from pathlib import Path; from forward_dynamics.evidence import load_evaluation_evidence; e = load_evaluation_evidence(Path('artifacts/experiment-03-evaluation-v1')); print(len(e.predictions), len(e.rollouts), len(e.windows))"
 ```
 
 Loading verifies input/output checksums, schema, exact membership and expected
 states, residuals, adapter settings, all counts and recomputed aggregates.
-It checks MuJoCo predictions against recorded next states at the declared
-tolerance and simple predictions against their equations. It never queries
-simulator dynamics. Bad records fail rather than silently disappearing.
+It reconstructs rollout identities, actions and endpoints from original validated
+cases, checks reference endpoints at the declared tolerance, and algebraically
+replays every other adapter under the original actions. Analytical settings
+must match the independently committed plant contract bound to the exact model
+SHA, even after outer hashes are repaired. Generation cross-checks that contract
+against compiled extraction. Reporting and loading do not import/query MuJoCo.
+Bad records fail rather than silently disappearing.
+
+Generation uses a run-local reference cache keyed only by state, applied torque
+and context. Cache values are real reference predictions; expected targets never
+populate it. This relies on the documented deterministic memoryless plant and
+is discarded between runs. Reporting consumes saved predictions and exposes
+the exact plotted numeric values through `report_plots.plot_series(evidence)`.
 
 Provenance distinguishes the dataset source commit (Experiment 01), dataset
 builder commit (Experiment 02), evaluator commit, and any later publication
@@ -333,6 +360,9 @@ output, inspect an abandoned `.one-step-staging-*` directory if present, and
 rerun into a fresh directory; incomplete bundles fail loading. This workflow
 does not promise durability across filesystem/power failures or concurrent
 writers. No published Stage 3 report or physical-system validation is implied.
+Reports also stage before publication, refuse existing outputs and protected
+source/config/dataset trees, and may use a fresh descendant of the evidence
+directory. Keep existing results and choose new output paths when rebuilding.
 
 ## File ownership
 
@@ -343,9 +373,12 @@ protocol; `evaluation.py` owns observed-state calls and grouped summaries.
 eligible/unavailable counts independently of publication.
 `provenance.py` captures/checks source identity, `serialization.py` handles
 strict finite JSON, and `evidence.py` audits saved derivations.
+`rollout_evidence.py` reconstructs window membership, actions and summaries.
 `generation.py` owns staging/publication and the CLI owns user-facing errors.
 `plant.py` extracts static physical coefficients; `analytical.py` integrates
 the simplified unconstrained ODE independently of simulator dynamics.
+`report_tables.py`, `report_plots.py`, `report_markdown.py` and `reporting.py`
+own CSV, numeric plot series/rendering, narrative and report publication.
 
 ## Learning checkpoint
 

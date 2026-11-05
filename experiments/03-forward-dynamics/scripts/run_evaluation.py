@@ -1,4 +1,4 @@
-"""Evaluate observed-state one-step predictors and audit the saved evidence."""
+"""Evaluate the frozen prediction protocol and independently audit evidence."""
 
 import argparse
 from pathlib import Path
@@ -18,7 +18,7 @@ def main() -> None:
         manifest = run_evaluation(args.config, args.output, allow_dirty=args.allow_dirty)
     except (ValueError, OSError) as error:
         parser.error(str(error))
-    print(f"one-step evaluation saved and validated -> {manifest}")
+    print(f"prediction evaluation saved and validated -> {manifest}")
 
 
 if __name__ == "__main__":

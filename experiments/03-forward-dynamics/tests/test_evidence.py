@@ -5,7 +5,7 @@ import shutil
 
 import pytest
 
-from forward_dynamics.config import DEFAULT_CONFIG
+from forward_dynamics.config import LEGACY_CONFIG as DEFAULT_CONFIG
 from forward_dynamics.evidence import load_evaluation_evidence
 from forward_dynamics.generation import run_evaluation
 

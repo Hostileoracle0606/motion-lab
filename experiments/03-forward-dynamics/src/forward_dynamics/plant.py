@@ -38,6 +38,18 @@ class PlantParameters:
             raise ValueError("inertia must be positive and damping nonnegative")
 
 
+def expected_plant_parameters(environment_version: str) -> PlantParameters:
+    """Committed narrow-plant contract, independently readable without MuJoCo.
+
+    Effective capsule inertia plus 0.01 kg m² armature, cross-checked against
+    compiled extraction at generation. The checksum binds all geometry, mass,
+    damping and actuator settings; no other model can inherit these constants.
+    """
+    if environment_version != "8612091d73babb1a0122cb5163ea744183486cd8cc6fbae2813f45818be57263":
+        raise ValueError("no independent parameter contract for model checksum")
+    return PlantParameters(ENVIRONMENT_ID, environment_version, 0.23242512112403102, 0.05)
+
+
 def load_plant_parameters(
     model_path: Path, expected_environment_version: str,
 ) -> PlantParameters:
