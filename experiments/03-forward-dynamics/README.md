@@ -333,7 +333,9 @@ cases, checks reference endpoints at the declared tolerance, and algebraically
 replays every other adapter under the original actions. Analytical settings
 must match the independently committed plant contract bound to the exact model
 SHA, even after outer hashes are repaired. Generation cross-checks that contract
-against compiled extraction. Reporting and loading do not import/query MuJoCo.
+against compiled extraction. Reporting and loading do not compile a MuJoCo model
+or query simulator dynamics. Their inherited configuration dependency imports
+MuJoCo, so this is not an import-free dependency contract.
 Bad records fail rather than silently disappearing.
 
 Generation uses a run-local reference cache keyed only by state, applied torque

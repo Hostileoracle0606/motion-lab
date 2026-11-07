@@ -5,6 +5,7 @@ from dataclasses import fields
 from pathlib import Path
 
 from forward_dynamics.evidence import EvaluationEvidence
+from forward_dynamics.evaluation import GROUP_FIELDS
 from forward_dynamics.metrics import ErrorSummary
 
 
@@ -24,8 +25,7 @@ def table_rows(evidence: EvaluationEvidence, mode: str) -> tuple[dict, ...]:
         groups = {}
         for window in evidence.windows:
             episode = outcomes[window.episode_id]
-            for group, field in (("episode", "episode_id"), ("scenario", "scenario_id"),
-                                 ("controller", "controller_id"), ("split", "split")):
+            for group, field in GROUP_FIELDS:
                 key = (group, window.split, episode[field], window.horizon_steps)
                 eligible, unavailable = groups.get(key, (0, 0))
                 groups[key] = (eligible + window.eligible_count, unavailable + window.unavailable_count)

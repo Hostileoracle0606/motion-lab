@@ -6,6 +6,7 @@ from dataclasses import asdict
 from forward_dynamics.adapters import make_predictor
 from forward_dynamics.config import EvaluationConfig
 from forward_dynamics.dataset import PredictionCase
+from forward_dynamics.evaluation import GROUP_FIELDS
 from forward_dynamics.metrics import residual, summarize_errors
 from forward_dynamics.rollouts import RolloutPrediction, WindowCount
 from forward_dynamics.serialization import require_equal, require_fields
@@ -38,8 +39,7 @@ def episode_outcomes(cases: tuple[PredictionCase, ...]) -> tuple[dict, ...]:
 def summarize_rollouts(predictions: tuple[RolloutPrediction, ...]) -> tuple[dict, ...]:
     grouped = defaultdict(list)
     for row in predictions:
-        for group, field in (("episode", "episode_id"), ("scenario", "scenario_id"),
-                             ("controller", "controller_id"), ("split", "split")):
+        for group, field in GROUP_FIELDS:
             grouped[(row.predictor_id, group, row.split, getattr(row, field), row.horizon_steps)].append(row.residual)
     return tuple({"predictor_id": name, "group": group, "split": split,
                   "key": key, "horizon_steps": horizon,
