@@ -8,6 +8,11 @@ from forward_dynamics.metrics import StateResidual, residual, summarize_errors
 from forward_dynamics.types import DynamicsState, Predictor, validate_prediction_inputs
 
 
+# Shared domain identities for both prediction summaries and report coverage.
+GROUP_FIELDS = (("episode", "episode_id"), ("scenario", "scenario_id"),
+                ("controller", "controller_id"), ("split", "split"))
+
+
 @dataclass(frozen=True)
 class OneStepPrediction:
     case: PredictionCase
@@ -48,10 +53,7 @@ def summarize_predictions(predictions: tuple[OneStepPrediction, ...]) -> tuple[d
     """Keep episode/scenario/controller/split results, equal weight per row."""
     grouped = defaultdict(list)
     for row in predictions:
-        for group, field in (
-            ("episode", "episode_id"), ("scenario", "scenario_id"),
-            ("controller", "controller_id"), ("split", "split"),
-        ):
+        for group, field in GROUP_FIELDS:
             key = (row.predictor_id, group, row.case.split, getattr(row.case, field))
             grouped[key].append(row.residual)
     return tuple(

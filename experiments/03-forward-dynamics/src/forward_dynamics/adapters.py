@@ -1,7 +1,11 @@
 """Adapter construction and reproducible settings for the declared protocol."""
 
+from dataclasses import asdict
+
+from forward_dynamics.analytical import AnalyticalRK4Predictor
 from forward_dynamics.baselines import ConstantVelocityPredictor, NoChangePredictor
 from forward_dynamics.config import EvaluationConfig
+from forward_dynamics.plant import expected_plant_parameters
 from forward_dynamics.types import Predictor
 
 
@@ -13,6 +17,9 @@ def make_predictor(predictor_id: str, config: EvaluationConfig) -> Predictor:
     if predictor_id == "mujoco":
         from forward_dynamics.mujoco_predictor import MujocoPredictor
         return MujocoPredictor(config.model_path)
+    for step in config.analytical_timesteps_s:
+        if predictor_id == f"analytical_rk4_{step:g}":
+            return AnalyticalRK4Predictor(expected_plant_parameters(config.environment_version), step)
     raise ValueError(f"unsupported predictor_id: {predictor_id}")
 
 
@@ -21,7 +28,12 @@ def adapter_descriptions(config: EvaluationConfig) -> list[dict]:
     return [
         {"predictor_id": name, "parameters": (
             {"simulation_timestep_s": 0.002, "model_sha256": config.environment_version,
-             "reset": "fresh_data"} if name == "mujoco" else {}
+             "reset": "fresh_data"} if name == "mujoco" else
+            {"integration_timestep_s": float(name.removeprefix("analytical_rk4_")),
+             "plant_parameters": asdict(expected_plant_parameters(config.environment_version)),
+             "parameter_source": "committed_model_sha256_contract_cross_checked_at_generation",
+             "omitted_forces": ["soft_joint_limits", "contacts"]}
+            if name.startswith("analytical_rk4_") else {}
         )}
         for name in config.predictor_ids
     ]

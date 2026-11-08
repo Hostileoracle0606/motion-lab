@@ -1,0 +1,15 @@
+{
+  "files": {
+    "evaluation.json": {
+      "sha256": "e0e86f5f280d4636e6f2beb637311ef6846694c33520972d4ff5eb42f6ba8b43"
+    },
+    "one_step.jsonl": {
+      "sha256": "adc07c1eb68c0d59115a5e1d4c1d71f661967c6fee9a9f1b051b65723542963f"
+    },
+    "rollouts.jsonl": {
+      "sha256": "0e095db6db63da849c63eb5f667599f7fcd402e5179e68725040eb12fb986c1d"
+    }
+  },
+  "schema_version": 1,
+  "scope": "full"
+}

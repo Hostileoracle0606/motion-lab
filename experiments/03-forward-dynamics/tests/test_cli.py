@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 
-from forward_dynamics.config import DEFAULT_CONFIG
+from forward_dynamics.config import LEGACY_CONFIG as DEFAULT_CONFIG
 from forward_dynamics.evidence import load_evaluation_evidence
 from forward_dynamics.generation import run_evaluation
 import forward_dynamics.provenance as provenance
@@ -71,6 +71,57 @@ def test_cli_help_uses_ordinary_package_imports(tmp_path) -> None:
     result = subprocess.run([sys.executable, str(SCRIPT), "--help"], cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0
     assert "--allow-dirty" in result.stdout
+
+
+def test_report_cli_help_uses_ordinary_package_imports(tmp_path) -> None:
+    script = SCRIPT.with_name("generate_report.py")
+    result = subprocess.run([sys.executable, str(script), "--help"], cwd=tmp_path, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "--input" in result.stdout and "--output" in result.stdout
+
+
+def test_reference_cache_distinguishes_all_inputs_and_is_run_local():
+    from dataclasses import replace
+    from forward_dynamics.dataset import load_prediction_cases
+    from forward_dynamics.config import load_evaluation_config
+    from forward_dynamics.mujoco_predictor import MujocoPredictor
+    from forward_dynamics.types import DynamicsState
+
+    config = load_evaluation_config(DEFAULT_CONFIG)
+    case = load_prediction_cases(config.dataset_dir, config.dataset_version)[0]
+    original = MujocoPredictor(config.model_path)
+    cached = generation._RunReferenceCache(original)
+    inputs = [(case.state, case.applied_torque_nm, case.context),
+              (DynamicsState(case.state.position_rad + 0.1, case.state.velocity_rad_s), case.applied_torque_nm, case.context),
+              (case.state, -1.0, case.context),
+              (case.state, case.applied_torque_nm, replace(case.context, control_interval_s=0.02))]
+    expected = tuple(original.predict(*values) for values in inputs)
+    assert len(set(expected)) == 4
+    for values, want in zip(inputs, expected, strict=True):
+        assert cached.predict(*values) == want
+        assert cached.predict(*values) == want
+    assert generation._RunReferenceCache(original).predict(*inputs[0]) == expected[0]
+
+
+@pytest.mark.parametrize("experiment", ["01-feedback-control", "02-state-transition-dataset"])
+def test_publication_guard_protects_participating_configuration_trees(experiment):
+    config = generation.load_evaluation_config(DEFAULT_CONFIG)
+    target = ROOT / "experiments" / experiment / "configs" / "must-not-publish"
+    with pytest.raises(ValueError, match="overlap"):
+        generation._validate_output(target, DEFAULT_CONFIG, config)
+
+
+def test_reference_cache_cannot_bypass_input_validation_on_a_cache_hit():
+    from forward_dynamics.mujoco_predictor import MujocoPredictor
+    from forward_dynamics.types import DynamicsContext, DynamicsState
+
+    config = generation.load_evaluation_config(DEFAULT_CONFIG)
+    cached = generation._RunReferenceCache(MujocoPredictor(config.model_path))
+    state = DynamicsState(0.0, 0.0)
+    context = DynamicsContext(config.environment_id, config.environment_version, 0.01, 3.0)
+    cached.predict(state, 1.0, context)
+    with pytest.raises(ValueError):
+        cached.predict(state, True, context)
 
 
 def test_partition_checksum_failure_creates_no_output(tmp_path) -> None:

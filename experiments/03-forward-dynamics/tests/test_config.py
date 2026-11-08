@@ -14,10 +14,10 @@ def test_config_resolves_inputs_from_file_not_current_directory(monkeypatch, tmp
     config = load_evaluation_config(CONFIG)
     assert config.dataset_dir == ROOT / "experiments/02-state-transition-dataset/data/dataset-v1"
     assert config.model_path == ROOT / "experiments/01-feedback-control/models/one_link.xml"
-    assert config.predictor_ids == ("mujoco", "no_change", "constant_velocity")
+    assert config.predictor_ids == ("mujoco", "no_change", "constant_velocity", "analytical_rk4_0.002", "analytical_rk4_0.001", "analytical_rk4_0.0005")
     assert config.horizons == (1, 5, 10, 25, 50, 100)
     assert config.analytical_timesteps_s == (0.002, 0.001, 0.0005)
-    assert config.scope == "one_step"
+    assert config.scope == "full"
 
 
 @pytest.mark.parametrize(
@@ -26,8 +26,10 @@ def test_config_resolves_inputs_from_file_not_current_directory(monkeypatch, tmp
         ("horizons", "[true, 5]"), ("horizons", "[1.0, 5]"),
         ("horizons", "[1, 1]"), ("horizons", "[5, 1]"), ("horizons", "[0, 1]"),
         ("predictor_ids", '["mujoco", "mujoco"]'), ("predictor_ids", '["unknown"]'),
+        ("predictor_ids", '["mujoco", "no_change", "constant_velocity"]'),
+        ("horizons", "[1, 5]"), ("analytical_timesteps_s", "[0.002, 0.001]"),
         ("predictor_ids", "[]"), ("schema_version", "true"), ("schema_version", "2"),
-        ("scope", '"full"'), ("simulator_absolute_tolerance", "nan"),
+        ("scope", '"unknown"'), ("simulator_absolute_tolerance", "nan"),
         ("simulator_absolute_tolerance", "true"), ("simulator_absolute_tolerance", "-1.0"),
         ("analytical_timesteps_s", "[0.002, 0.002]"), ("analytical_timesteps_s", "[false]"),
         ("analytical_timesteps_s", "[1e100]"),

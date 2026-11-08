@@ -124,4 +124,3 @@
 - [ ] Reproduce from a separate clean worktree at the manifest's builder commit and compare all four files byte-for-byte.
 - [ ] Update root README and roadmap status only after reproduction succeeds; validate all local links and run the full suite.
 - [ ] Commit with `docs: publish Experiment 02 transition dataset`.
-

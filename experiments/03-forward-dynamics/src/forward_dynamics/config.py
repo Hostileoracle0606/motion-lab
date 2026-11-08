@@ -1,4 +1,4 @@
-"""Strict versioned one-step evaluation protocol with file-relative paths."""
+"""Strict versioned full/legacy prediction protocol with file-relative paths."""
 
 from dataclasses import asdict, dataclass
 import hashlib
@@ -13,6 +13,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_CONFIG = REPOSITORY_ROOT / "experiments/03-forward-dynamics/configs/evaluation-v1.toml"
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "experiments/03-forward-dynamics/results/evaluation-v1"
 BASE_PREDICTORS = ("mujoco", "no_change", "constant_velocity")
+ANALYTICAL_TIMESTEPS = (0.002, 0.001, 0.0005)
+FULL_PREDICTORS = BASE_PREDICTORS + tuple(f"analytical_rk4_{step:g}" for step in ANALYTICAL_TIMESTEPS)
+LEGACY_CONFIG = DEFAULT_CONFIG.with_name("one-step-v1.toml")
 
 
 @dataclass(frozen=True)
@@ -39,8 +42,8 @@ def load_evaluation_config(path: Path) -> EvaluationConfig:
         raise ValueError("evaluation config fields do not match schema")
     if type(raw["schema_version"]) is not int or raw["schema_version"] != 1:
         raise ValueError("unsupported evaluation config schema_version")
-    if raw["scope"] != "one_step":
-        raise ValueError("scope must be one_step")
+    if raw["scope"] not in ("one_step", "full"):
+        raise ValueError("scope must be one_step or full")
     if raw["dataset_version"] != "experiment-02-transition-v1":
         raise ValueError("unsupported dataset_version")
     for name in ("dataset_dir", "model_path", "environment_id", "environment_version"):
@@ -54,7 +57,7 @@ def load_evaluation_config(path: Path) -> EvaluationConfig:
         raise ValueError("environment_version does not match model checksum")
     ids = raw["predictor_ids"]
     if (not isinstance(ids, list) or not ids or
-            any(not isinstance(item, str) or item not in BASE_PREDICTORS for item in ids) or
+            any(not isinstance(item, str) or item not in FULL_PREDICTORS for item in ids) or
             len(set(ids)) != len(ids)):
         raise ValueError("predictor_ids must be unique supported adapter IDs")
     horizons = raw["horizons"]
@@ -69,13 +72,18 @@ def load_evaluation_config(path: Path) -> EvaluationConfig:
     steps = tuple(_positive("analytical_timesteps_s", step) for step in steps)
     if len(set(steps)) != len(steps):
         raise ValueError("analytical_timesteps_s must be unique")
+    if raw["scope"] == "full":
+        if tuple(ids) != FULL_PREDICTORS or steps != ANALYTICAL_TIMESTEPS or tuple(horizons) != (1, 5, 10, 25, 50, 100):
+            raise ValueError("full scope requires all six frozen adapters, timesteps and horizons")
+    elif any(name not in BASE_PREDICTORS for name in ids):
+        raise ValueError("one_step compatibility supports only original adapters")
     for step in steps:
         ratio = 0.010 / step
         if (not math.isfinite(ratio) or round(ratio) <= 0
                 or not math.isclose(ratio, round(ratio), rel_tol=0, abs_tol=1e-12)):
             raise ValueError("analytical timesteps must divide the control interval")
     return EvaluationConfig(
-        1, "one_step", raw["dataset_version"], dataset_dir, model_path,
+        1, raw["scope"], raw["dataset_version"], dataset_dir, model_path,
         raw["environment_id"], raw["environment_version"], tuple(ids), tolerance,
         tuple(horizons), steps,
     )
