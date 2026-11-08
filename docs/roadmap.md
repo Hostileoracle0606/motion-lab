@@ -8,7 +8,7 @@ Motion Lab follows a dependency-driven sequence. Each stage must produce evidenc
 - **In progress:** work has started, but one or more completion criteria remain unmet.
 - **Complete:** committed code and artifacts satisfy the documented gate and the result has been reproduced from a clean checkout.
 
-The first two experiments are **complete**. Later experiments remain
+The first three experiments are **complete**. Later experiments remain
 **planned**.
 
 ## Stage 1 — Feedback control in MuJoCo
@@ -94,7 +94,7 @@ The baseline answers what can already be achieved from an explicit transition fu
 
 It also establishes conventions for state error, angular wraparound, integration step, and multi-step rollout evaluation.
 
-**Planned artifact**
+**Committed artifact**
 
 - A one-step prediction interface.
 - A simulator-backed or analytical predictor.
@@ -107,7 +107,26 @@ It also establishes conventions for state error, angular wraparound, integration
 - Multi-step drift is shown as a function of horizon.
 - Numerical integration and simulator-query baselines are clearly distinguished.
 
-**Status:** Planned.
+**Status:** Complete. The
+[six-adapter comparison and reproduction recipe](../experiments/03-forward-dynamics/README.md#reproduced-result-and-commit-roles)
+publish one-step and recorded-action recursive-rollout evidence from all 2,540
+schema-v1 transitions, preserving the 940/800/800 scenario-safe partitions.
+The [audited report](../experiments/03-forward-dynamics/results/evaluation-v1/report/report.md)
+retains 15,240 one-step predictions, 82,908 rollout endpoints, and 48 shared
+coverage rows, including terminal transitions, short failures, and unavailable
+windows. Position and velocity errors remain separate in rad and rad/s.
+A separate clean checkout of evaluator
+`a9a0c5804a923646d59df5b1b2736264f5936946`, with an independent locked
+environment, passed all 516 tests and reproduced the four evidence files and
+both CSV tables byte-for-byte; plotted values and sample counts matched exactly.
+The unchanged artifact bundle is commit
+`673c126dba6cfd67bb9539126252f42a50cd8ffe`; later closure documentation does
+not change its evaluator provenance. This is local completion with same-platform
+macOS arm64 simulation proof, not a remote merge/publication or issue-closure
+claim. Analytical RK4 omits soft joint-limit/contact forces; finer integration
+does not restore omitted physics. Learned dynamics/normalization, broader data
+collection, MPC, and visual/latent expansion remain future work. No physical,
+generalization, cross-platform, or closed-loop control-quality claim follows.
 
 ## Stage 4 — Learned dynamics
 

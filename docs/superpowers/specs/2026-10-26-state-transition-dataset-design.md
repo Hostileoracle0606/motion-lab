@@ -89,4 +89,3 @@ For every episode, reset the declared MuJoCo model to the recorded initial state
 ## Completion boundary
 
 Experiment 02 is complete when a clean checkout at the manifest's builder commit passes all tests, regenerates these four files byte-for-byte, and the repository status pages link to the dataset card. No claim extends to model accuracy or physical hardware.
-

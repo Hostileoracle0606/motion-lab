@@ -18,13 +18,15 @@ recursive recorded-action rollout evaluation as a Python API.
 adds an independent analytical RK4 adapter and static plant-parameter extraction.
 Issue [#16](https://github.com/Hostileoracle0606/motion-lab/issues/16) integrates
 all six adapters into full one-step and recursive-rollout evidence and derived
-comparison reports. Stage 3 clean-reproduction closure remains planned under
-[#17](https://github.com/Hostileoracle0606/motion-lab/issues/17); implementation
-and exploratory dirty runs do not establish that gate.
+comparison reports. The clean reproduction for
+[#17](https://github.com/Hostileoracle0606/motion-lab/issues/17) completes
+Stage 3 with the committed [comparison report](results/evaluation-v1/report/report.md)
+and its audited evidence bundle. This records local branch completion; it does
+not claim remote publication, merge, or GitHub issue closure.
 
 The [design](../../docs/superpowers/specs/2026-11-03-forward-dynamics-design.md)
 and [ticket plan](../../docs/superpowers/plans/2026-11-03-forward-dynamics.md)
-describe those later deliverables. Experiment 02's
+record the protocol and delivery sequence. Experiment 02's
 [dataset card](../02-state-transition-dataset/DATASET_CARD.md) owns the recorded
 transition and split contracts.
 
@@ -42,6 +44,99 @@ Use Python `>=3.12,<3.13` and the committed `uv.lock`. Repository dependencies
 include MuJoCo `3.16.0`; these baseline and metric modules use only the standard
 library and do not import MuJoCo. Current verification is on macOS arm64 with
 Python 3.12.15. Run the complete regression suite with `uv run pytest -q`.
+
+## Reproduced result and commit roles
+
+The canonical [evidence manifest](results/evaluation-v1/manifest.json) and
+[report](results/evaluation-v1/report/report.md) retain all 2,540 source
+transitions, 15,240 one-step predictions, 82,908 rollout endpoints, and 48 shared
+episode/horizon coverage rows. The report links full-precision tables and plots
+with position errors in radians and velocity errors in radians per second.
+Terminal transitions, short failed episodes, and unavailable windows remain
+in the comparison. Complete scenario splits stay at 940 train, 800 validation,
+and 800 test transitions; no fitting, normalization, or selection from test
+outcomes occurs.
+
+| Role | Commit |
+| --- | --- |
+| Dataset source (Experiment 01) | `7a6d152f5d6f9358681e1b67ad08cbb1f0c3484c` |
+| Dataset builder (Experiment 02) | `e95c7a09a53692a64f660acd0229fd86ec035c53` |
+| Clean evaluator source/config | `a9a0c5804a923646d59df5b1b2736264f5936946` |
+| Unchanged 11-file artifact bundle | `673c126dba6cfd67bb9539126252f42a50cd8ffe` |
+
+This README and status updates are committed after the artifact bundle. The
+evaluator SHA identifies the code that produced the bytes, so it intentionally
+differs from the artifact and later documentation commits. Artifact files do
+not attempt to record their own future commit SHA. Preserve the evaluator
+commit in history during integration so the pinned recipe remains available.
+`evaluation.json` records all participating input SHA-256 checksums, including
+the config, model, dataset manifest/partitions, source, packaging, and `uv.lock`;
+`manifest.json` records evidence-file checksums.
+
+A separate clean detached worktree at the evaluator SHA, with its own freshly
+synced environment, passed all 516 repository tests. It regenerated the four
+evidence files and two CSV tables byte-for-byte, and every plotted numeric value
+and sample count matched exactly. Reports were regenerated from saved outputs
+with simulator construction/stepping blocked. Both runs used Python 3.12.15,
+MuJoCo 3.16.0, and macOS arm64. PNG byte identity is not the scientific gate.
+This is same-platform, one-seed simulated evidence: physical fidelity,
+cross-platform reproduction, generalization, learned dynamics, and closed-loop
+control quality remain unmeasured. Broader collection, learning/normalization,
+MPC, and visual/latent prediction remain future work.
+
+## Reproduce the committed bundle
+
+Run this from a checkout containing the artifact commit above. It creates a
+fresh detached evaluator worktree and a separate uv environment under a new
+temporary directory. Every output path is initially absent; existing evidence
+and reports are preserved. Use the recorded platform/runtime for an exact-byte
+comparison. All `uv` commands below inherit the independent environment.
+
+```bash
+publication_root="$(git rev-parse --show-toplevel)"
+reproduction_root="$(mktemp -d "${TMPDIR:-/tmp}/motion-lab-exp03.XXXXXX")"
+git worktree add --detach "$reproduction_root/evaluator" \
+  a9a0c5804a923646d59df5b1b2736264f5936946
+(
+  export UV_PROJECT_ENVIRONMENT="$reproduction_root/.venv"
+  cd "$reproduction_root/evaluator" || exit 1
+  uv sync --frozen &&
+  uv run --frozen pytest -q &&
+  uv run --frozen python experiments/03-forward-dynamics/scripts/run_evaluation.py \
+    --config experiments/03-forward-dynamics/configs/evaluation-v1.toml \
+    --output "$reproduction_root/evaluation" &&
+  uv run --frozen python experiments/03-forward-dynamics/scripts/generate_report.py \
+    --input "$reproduction_root/evaluation" \
+    --output "$reproduction_root/evaluation/report" &&
+  uv run --frozen python - \
+    "$publication_root/experiments/03-forward-dynamics/results/evaluation-v1" \
+    "$reproduction_root/evaluation" <<'PY'
+import csv
+from pathlib import Path
+import sys
+
+from forward_dynamics.evidence import load_evaluation_evidence
+from forward_dynamics.report_plots import plot_series
+
+published, reproduced = map(Path, sys.argv[1:])
+for name in ("evaluation.json", "one_step.jsonl", "rollouts.jsonl", "manifest.json"):
+    assert (published / name).read_bytes() == (reproduced / name).read_bytes(), name
+for name in ("one_step.csv", "rollouts.csv"):
+    with (published / "report" / name).open(newline="") as left:
+        with (reproduced / "report" / name).open(newline="") as right:
+            assert list(csv.DictReader(left)) == list(csv.DictReader(right)), name
+original = load_evaluation_evidence(published)
+fresh = load_evaluation_evidence(reproduced)
+assert plot_series(original) == plot_series(fresh), "plotted values/counts"
+print("Four evidence files, both CSV tables, and all plotted values/counts match")
+PY
+)
+```
+
+Keep the temporary directory while inspecting results. Rebuild into another
+fresh directory rather than deleting or overwriting a published bundle. Running
+the evaluator at a later publication/documentation HEAD would record a different
+evaluator SHA; use the pinned source commit for this exact comparison.
 
 ## Prediction contract
 
@@ -361,7 +456,8 @@ rename exposes the bundle. If a process is interrupted, preserve any previous
 output, inspect an abandoned `.one-step-staging-*` directory if present, and
 rerun into a fresh directory; incomplete bundles fail loading. This workflow
 does not promise durability across filesystem/power failures or concurrent
-writers. No published Stage 3 report or physical-system validation is implied.
+writers. Exploratory dirty runs do not establish Stage 3 reproduction or
+physical-system validation.
 Reports also stage before publication, refuse existing outputs and protected
 source/config/dataset trees, and may use a fresh descendant of the evidence
 directory. Keep existing results and choose new output paths when rebuilding.
