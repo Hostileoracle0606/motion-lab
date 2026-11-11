@@ -1,9 +1,11 @@
 # Experiment 04: Learned Dynamics — Proposed Design
 
-Status: **Draft for human review**, issue #24. Baseline: main commit
+Status: **Approved for implementation planning**, issue #24. Approval was
+given in chat on 2026-11-11 after the executive summary and decisions review.
+Baseline: main commit
 `84d28e227e6757c0128480fa16d0ad96ae04347a`. The user selected PyTorch
-and asked to investigate the M4 GPU alongside CPU. Numbers below are design
-proposals, not measured performance or a claim of approval.
+and asked to investigate the M4 GPU alongside CPU. The settings below form
+the approved initial protocol; they are not measured performance results.
 
 ## 1. Question and scope
 
@@ -42,7 +44,7 @@ rows enter fitting, and only validation rows enter model selection.
 
 ## 3. Approaches and decisions
 
-- **Residual MLP (proposed):** learn delta state and add it to the current
+- **Residual MLP (selected):** learn delta state and add it to the current
   state. At 0.010 s per step, the observed changes are small relative to
   typical state magnitudes. This gives a useful identity starting point but
   does not guarantee better accuracy.
@@ -88,21 +90,21 @@ manifest and train-partition hashes. No validation/test statistics are fit.
 
 Canonical model: 3 -> 32 -> 32 -> 2 fully connected layers, tanh activations,
 linear output; default PyTorch Linear initialization after seeding the
-PyTorch CPU global generator with the run seed, before device transfer. Set model to evaluation mode for
-inference. The input and output shapes are [batch,3] and [batch,2]; single
+PyTorch CPU global generator with the run seed, before device transfer. Set
+model to evaluation mode for inference. The input and output shapes are [batch,3] and [batch,2]; single
 state adapter wraps one row. No dropout or batch normalization.
 
 ## 5. Training and selection
 
-Proposed roster: initialization/data-order seeds [0,1,2,3,4]; these are
+Declared roster: initialization/data-order seeds [0,1,2,3,4]; these are
 training seeds, not additional data collection seeds. Every variant uses all
 five seeds. Use Adam (learning rate 0.001, betas 0.9/0.999, epsilon 1e-8,
 weight decay 0), batch size 64, at most 300 epochs, no learning-rate scheduler,
 and no early stopping. One epoch iterates a seeded random permutation of all
 eligible training items, once each, including a smaller final batch.
 Precompute per-epoch permutations using a separate CPU generator seeded
-with 100000 plus the run seed;
-CPU and MPS use the same initialization and order for a given seed.
+with 100000 plus the run seed. CPU and MPS use the same initialization and
+order for a given seed.
 Use one-step mean squared error averaged over batch and two normalized delta
 coordinates. Log validation after every epoch and save the checkpoint with
 lowest validation mean normalized one-step MSE; earliest epoch wins exact
@@ -204,8 +206,11 @@ the tolerance in section 10. Report both devices regardless of the winner.
 If MPS is unsupported or fails those gates, record why and obtain approval
 for changing the primary device before publication. Do not claim GPU speed
 or quality advantages without measured evidence.
-Final test matrix uses all five MPS seed checkpoints once, and
-compares all declared baselines under the frozen protocol.
+Final test matrix uses all five MPS seeds' repeat-0 checkpoints per declared
+study variant once, and compares all declared baselines under the frozen
+protocol. The implementation plan enumerates six variants (canonical,
+capacity, two matched-history arms and two matched-loss arms) and 45 total
+training runs, including canonical CPU/MPS repeatability diagnostics.
 
 ## 9. Checkpoints, audit and ownership
 
@@ -246,7 +251,7 @@ inference, require per-output absolute tolerance 1e-6 rad and 1e-5 rad/s.
 For independent same-device retraining, compare validation per-component MAE
 within 1e-4 rad and 1e-3 rad/s, and report checkpoint-selection differences;
 failed tolerance is a failed reproduction gate, not permission to relax it
-after seeing test results. These are proposed predeclared thresholds, not
+after seeing test results. These are predeclared thresholds, not
 measured reproducibility. Retain timing distributions without a numerical
 timing-equality requirement.
 
