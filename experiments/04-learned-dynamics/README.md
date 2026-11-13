@@ -1,6 +1,6 @@
 # Experiment 04 — Learned dynamics
 
-Status: data/preprocessing APIs implemented (#25). Model training,
+Status: data/preprocessing APIs (#25) and the residual predictor (#26) are implemented. Model training,
 CPU/MPS comparisons and prediction results remain planned.
 
 The [approved design](../../docs/superpowers/specs/2026-11-10-learned-dynamics-design.md)
@@ -92,6 +92,30 @@ uv run pytest -q experiments/04-learned-dynamics/tests
 ```
 
 The current supported verification environment is macOS arm64. This step adds
-no learning framework. PyTorch/MPS dependency and operation verification belongs
-to #26. The small, simulated one-link dataset has one collection seed and only
+PyTorch 2.15.0 with explicit CPU/MPS selection. The small, simulated one-link dataset has one collection seed and only
 four scenarios; it supports no physical fidelity or broad-generalization claim.
+
+## Residual model and explicit devices
+
+`ResidualMLP(ModelSpec(), seed=0)` creates the declared float32
+3->32->32->2 tanh network on CPU. Width 16 and one-step explicit history
+(six inputs) are the other declared v1 options. Initialization restores the
+caller's CPU RNG state. `LearnedPredictor(model, normalizer, context, id,
+device)` owns an inference copy, applies saved scaling, predicts a normalized
+delta and restores it to rad/rad/s before adding the current state.
+A zero **normalized** output means the saved mean physical delta; zero
+physical delta corresponds to subtracting the saved mean and dividing by scale.
+
+Use `device="mps"` explicitly to request the GPU or `device="cpu"` for
+the CPU. Missing/unsupported MPS raises an error and never substitutes CPU.
+Launch Python without `PYTORCH_ENABLE_MPS_FALLBACK=1`; changing that variable
+after importing PyTorch does not reconfigure the backend. GPU timing remains
+a later benchmark task.
+
+The canonical `predict` and `predict_batch` receive current state, applied
+action and the exact one-link environment/context. History uses
+`predict_with_history` with an explicit previous state/action and never
+stores hidden trajectory state. Batched physical arrays are [N,2] states and
+[N] actions; model tensors are float32. Outputs are finite physical values
+without clipping. No simulator calls, fitting, targets or expected future
+states enter inference.
