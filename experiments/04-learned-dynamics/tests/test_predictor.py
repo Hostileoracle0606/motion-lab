@@ -115,3 +115,12 @@ def test_actual_mps_prediction_repeatability_and_batch(make_predictor):
     assert p.predict(DynamicsState(1, 2), 1., CONTEXT) == a
     actual = p.predict_batch(np.array([[1., 2.]]), np.array([1.]), CONTEXT)
     np.testing.assert_allclose(actual, [[a.position_rad, a.velocity_rad_s]], atol=1e-6, rtol=0)
+
+
+def test_prediction_does_not_query_simulator(make_predictor, monkeypatch):
+    import mujoco
+    def forbidden(*args, **kwargs):
+        raise AssertionError("simulator query from learned inference")
+    monkeypatch.setattr(mujoco, "mj_step", forbidden)
+    monkeypatch.setattr(mujoco, "mj_forward", forbidden)
+    assert make_predictor().predict(DynamicsState(1, 2), 0., CONTEXT) == DynamicsState(1.02, 1.9)

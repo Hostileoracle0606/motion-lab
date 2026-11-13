@@ -119,3 +119,49 @@ stores hidden trajectory state. Batched physical arrays are [N,2] states and
 [N] actions; model tensors are float32. Outputs are finite physical values
 without clipping. No simulator calls, fitting, targets or expected future
 states enter inference.
+
+Exercise ordinary installed imports, train-only preprocessing and an untrained
+seeded network from any working directory:
+
+```bash
+uv run python experiments/04-learned-dynamics/scripts/smoke_predictor.py --device cpu
+uv run python experiments/04-learned-dynamics/scripts/smoke_predictor.py --device mps
+```
+
+These commands print structured synthetic operation results, not model-quality
+measurements. Setup and CLI tests on macOS 26.4 arm64 / Python 3.12.15 confirmed
+PyTorch 2.15.0 MPS availability, prediction, and a separate forward/backward/Adam
+step. CPU/MPS speed, learned accuracy and training repeatability are later
+experiments and are not established by this smoke check.
+
+## Inference checkpoint bundles
+
+`save_checkpoint(output_dir, model, normalizer, metadata)` creates a fresh
+directory with metadata.json, normalizer.json, weights.npz and manifest.json.
+Supply metadata including model/run/context, selected epoch and validation
+metric, dataset/config/source identities and runtime; the saver derives
+normalizer/tensor hashes and the tensor filename. `load_checkpoint(input_dir,
+device="cpu")` returns a checked model, the complete normalizer (including
+all fitted episode/step keys), metadata and bundle digest. A checkpoint can
+be replayed on CPU or explicitly requested MPS.
+
+The loader checks fixed names, regular files, exact schemas, reachable source
+commit, environment/timing/action context, architecture/run consistency,
+finite float32 weights and complete tensor names/shapes. Before creating a
+model it checks NPZ headers and resource limits (2 MiB per JSON file, 16 MiB
+compressed/decompressed tensor budget); it loads no Python pickle and
+extracts no arbitrary archive paths. It also validates the original committed
+v1 dataset and independently refits its training normalizer to bind statistics,
+hashes and fitted identities. The original dataset must remain available.
+
+The source/config/seed metadata are declared provenance. File hashes and
+source-commit existence alone do not prove which source/config actually
+trained weights; the training-selection/evidence audit and reproduction
+tasks must verify those claims. Changing all coherent declarations cannot
+be detected as forgery by a self-contained unsigned bundle.
+
+Saves are staged and audited before exclusively reserving the final directory.
+An interruption while copying can leave an incomplete output, which loading
+rejects; retry into a new directory after inspecting the interrupted one.
+Source/input locations and existing outputs cannot be overwritten. Checkpoints
+are inference-only; optimizer state and resume are unsupported in schema v1.
