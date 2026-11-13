@@ -216,3 +216,16 @@ class WindowCoverage:
     eligible: int
     unavailable: int
     missing_history: int
+
+
+@dataclass(frozen=True)
+class ModelSpec:
+    """The two widths and explicit history mode declared for experiment v1."""
+    hidden_width: int = 32
+    history_steps: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.hidden_width) is not int or self.hidden_width not in (16, 32):
+            raise ValueError("hidden_width must be 16 or 32 for model v1")
+        if type(self.history_steps) is not int or self.history_steps not in (0, 1):
+            raise ValueError("history_steps must be zero or one")

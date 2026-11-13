@@ -1,6 +1,6 @@
 # Experiment 04 — Learned dynamics
 
-Status: data/preprocessing APIs implemented (#25). Model training,
+Status: data/preprocessing APIs (#25) and the residual predictor (#26) are implemented. Model training,
 CPU/MPS comparisons and prediction results remain planned.
 
 The [approved design](../../docs/superpowers/specs/2026-11-10-learned-dynamics-design.md)
@@ -92,6 +92,76 @@ uv run pytest -q experiments/04-learned-dynamics/tests
 ```
 
 The current supported verification environment is macOS arm64. This step adds
-no learning framework. PyTorch/MPS dependency and operation verification belongs
-to #26. The small, simulated one-link dataset has one collection seed and only
+PyTorch 2.15.0 with explicit CPU/MPS selection. The small, simulated one-link dataset has one collection seed and only
 four scenarios; it supports no physical fidelity or broad-generalization claim.
+
+## Residual model and explicit devices
+
+`ResidualMLP(ModelSpec(), seed=0)` creates the declared float32
+3->32->32->2 tanh network on CPU. Width 16 and one-step explicit history
+(six inputs) are the other declared v1 options. Initialization restores the
+caller's CPU RNG state. `LearnedPredictor(model, normalizer, context, id,
+device)` owns an inference copy, applies saved scaling, predicts a normalized
+delta and restores it to rad/rad/s before adding the current state.
+A zero **normalized** output means the saved mean physical delta; zero
+physical delta corresponds to subtracting the saved mean and dividing by scale.
+
+Use `device="mps"` explicitly to request the GPU or `device="cpu"` for
+the CPU. Missing/unsupported MPS raises an error and never substitutes CPU.
+Launch Python without `PYTORCH_ENABLE_MPS_FALLBACK=1`; changing that variable
+after importing PyTorch does not reconfigure the backend. GPU timing remains
+a later benchmark task.
+
+The canonical `predict` and `predict_batch` receive current state, applied
+action and the exact one-link environment/context. History uses
+`predict_with_history` with an explicit previous state/action and never
+stores hidden trajectory state. Batched physical arrays are [N,2] states and
+[N] actions; model tensors are float32. Outputs are finite physical values
+without clipping. No simulator calls, fitting, targets or expected future
+states enter inference.
+
+Exercise ordinary installed imports, train-only preprocessing and an untrained
+seeded network from any working directory:
+
+```bash
+uv run python experiments/04-learned-dynamics/scripts/smoke_predictor.py --device cpu
+uv run python experiments/04-learned-dynamics/scripts/smoke_predictor.py --device mps
+```
+
+These commands print structured synthetic operation results, not model-quality
+measurements. Setup and CLI tests on macOS 26.4 arm64 / Python 3.12.15 confirmed
+PyTorch 2.15.0 MPS availability, prediction, and a separate forward/backward/Adam
+step. CPU/MPS speed, learned accuracy and training repeatability are later
+experiments and are not established by this smoke check.
+
+## Inference checkpoint bundles
+
+`save_checkpoint(output_dir, model, normalizer, metadata)` creates a fresh
+directory with metadata.json, normalizer.json, weights.npz and manifest.json.
+Supply metadata including model/run/context, selected epoch and validation
+metric, dataset/config/source identities and runtime; the saver derives
+normalizer/tensor hashes and the tensor filename. `load_checkpoint(input_dir,
+device="cpu")` returns a checked model, the complete normalizer (including
+all fitted episode/step keys), metadata and bundle digest. A checkpoint can
+be replayed on CPU or explicitly requested MPS.
+
+The loader checks fixed names, regular files, exact schemas, reachable source
+commit, environment/timing/action context, architecture/run consistency,
+finite float32 weights and complete tensor names/shapes. Before creating a
+model it checks NPZ headers and resource limits (2 MiB per JSON file, 16 MiB
+compressed/decompressed tensor budget); it loads no Python pickle and
+extracts no arbitrary archive paths. It also validates the original committed
+v1 dataset and independently refits its training normalizer to bind statistics,
+hashes and fitted identities. The original dataset must remain available.
+
+The source/config/seed metadata are declared provenance. File hashes and
+source-commit existence alone do not prove which source/config actually
+trained weights; the training-selection/evidence audit and reproduction
+tasks must verify those claims. Changing all coherent declarations cannot
+be detected as forgery by a self-contained unsigned bundle.
+
+Saves are staged and audited before exclusively reserving the final directory.
+An interruption while copying can leave an incomplete output, which loading
+rejects; retry into a new directory after inspecting the interrupted one.
+Source/input locations and existing outputs cannot be overwritten. Checkpoints
+are inference-only; optimizer state and resume are unsupported in schema v1.
