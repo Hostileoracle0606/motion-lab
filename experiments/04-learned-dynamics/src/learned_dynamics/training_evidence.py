@@ -247,7 +247,10 @@ def write_run_manifest(output_dir: Path, config: TrainingConfig,
     content = json_bytes(payload, indent=2)
     outer = json_bytes({"schema_version": 1, "files": {
         "run-manifest.json": hashlib.sha256(content).hexdigest()}}, indent=2)
-    existing = sum(path.stat().st_size for path in output.rglob("*") if path.is_file() and not path.is_symlink())
+    existing_paths = tuple(output.rglob("*"))
+    if any(path.is_symlink() for path in existing_paths):
+        raise ValueError("training output cannot contain symlinked artifacts")
+    existing = sum(path.stat().st_size for path in existing_paths if path.is_file())
     if existing + len(content) + len(outer) > config.artifact_budget_bytes:
         raise ValueError("training artifacts exceed configured budget")
     with tempfile.TemporaryDirectory(prefix=".run-manifest-stage-", dir=output.parent) as temp:

@@ -1,4 +1,5 @@
 from dataclasses import replace
+import os
 from pathlib import Path
 
 import pytest
@@ -63,6 +64,49 @@ target_transform = "next_minus_current"
 @pytest.fixture
 def training_config_writer():
     return write_training_config
+
+
+def point_config_at_dataset(path: Path, dataset: Path) -> Path:
+    relative = os.path.relpath(dataset, path.parent)
+    path.write_text(path.read_text().replace('dataset_dir = "dataset"',
+                                             f'dataset_dir = "{relative}"'))
+    return path
+
+
+@pytest.fixture
+def committed_config_writer(training_config_writer):
+    def build(path: Path, **kwargs):
+        return point_config_at_dataset(training_config_writer(path, **kwargs), DATA)
+    return build
+
+
+@pytest.fixture
+def synthetic_views():
+    from learned_dynamics.predictor import SUPPORTED_CONTEXT
+    from learned_dynamics.types import SplitView, TrainingView
+
+    def episode(split, episode_id, scenario_id, count):
+        rows = []
+        for index in range(count):
+            state = DynamicsState(index * 0.02, index * 0.1)
+            rows.append(PredictionCase(
+                split=split, episode_id=episode_id, scenario_id=scenario_id,
+                controller_id="synthetic", seed=0, step_index=index, state=state,
+                applied_torque_nm=0.5 if index % 2 == 0 else -0.5,
+                expected_next_state=DynamicsState((index + 1) * 0.02, (index + 1) * 0.1),
+                context=SUPPORTED_CONTEXT, terminated=False, truncated=index == count - 1,
+                termination_reason="time_limit" if index == count - 1 else None,
+            ))
+        return tuple(rows)
+
+    train = SplitView("train", episode("train", "train-episode", "train-scenario", 32),
+                      "experiment-02-transition-v1", "b" * 64, "c" * 64)
+    validation = SplitView("validation", episode("validation", "validation-episode",
+                                                  "validation-scenario", 8),
+                           "experiment-02-transition-v1", "b" * 64, "c" * 64)
+    test = SplitView("test", episode("test", "test-episode", "test-scenario", 8),
+                     "experiment-02-transition-v1", "b" * 64, "c" * 64)
+    return TrainingView(train), validation, test
 
 
 @pytest.fixture

@@ -77,6 +77,17 @@ def test_manifest_refuses_overwrite_and_budget_excess(tmp_path, training_config_
         write_run_manifest(small.output_dir, small, results, provenance())
 
 
+def test_manifest_rejects_symlinked_existing_artifacts(tmp_path, training_config_writer):
+    config = load_training_config(training_config_writer(tmp_path / "training.toml"))
+    config.output_dir.mkdir()
+    outside = tmp_path / "outside"
+    outside.write_text("not owned by this run")
+    (config.output_dir / "linked").symlink_to(outside)
+    with pytest.raises(ValueError, match="symlink"):
+        write_run_manifest(config.output_dir, config,
+                           tuple(failed(run.run_id) for run in config.runs), provenance())
+
+
 def test_loader_rejects_tampered_epoch_duplicate_json_hashes_and_schema(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
     results = tuple(failed(run.run_id) for run in config.runs)

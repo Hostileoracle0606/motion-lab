@@ -165,3 +165,56 @@ An interruption while copying can leave an incomplete output, which loading
 rejects; retry into a new directory after inspecting the interrupted one.
 Source/input locations and existing outputs cannot be overwritten. Checkpoints
 are inference-only; optimizer state and resume are unsupported in schema v1.
+
+## Training orchestration and selection
+
+`configs/training-v1.toml` is the frozen 45-run roster: six MPS repeat-0
+variants across initialization seeds 0–4, canonical MPS repeat 1, and
+canonical CPU repeats 0 and 1. The roster is declared here, but the complete
+study is intentionally not executed by this slice; study execution and final
+test freezing belong to Task 9 / issue #29. The CLI requires the explicit
+`--allow-full-study` gate before it will accept that 45-run config.
+
+Initialization seed and data-order seed have separate roles. A run seed
+initializes the CPU model; `100000 + seed` initializes the independent CPU
+permutation generator. These five training seeds reuse one collected dataset
+and are not five data-collection seeds. Repeat 0 remains the predeclared
+publication run. Repeat 1 is a same-seed/device diagnostic, never a candidate
+chosen because its validation score is lower.
+
+Each epoch visits every eligible training item exactly once, including the
+smaller last batch. Adam uses the frozen settings in the config. Validation
+is used only for normalized one-step MSE after each epoch; the earliest exact
+minimum wins. Test rows are absent from both fitting and selection APIs. The
+fitter requests deterministic PyTorch algorithms for each run and restores
+the caller's process setting afterward; unsupported operations fail the run.
+The history pair shares starts that have a previous row, and the one-step versus
+five-step-loss pair shares complete episode-local length-five starts and the
+same update count. Recursive loss feeds predicted state forward and uses
+future measured states only as labels.
+
+Every configured run produces either a validated checkpoint plus its complete
+learning curve or a structured failure row. The final manifest refuses a
+missing seed, duplicate run, best-seed-only subset, inconsistent checkpoint,
+existing destination, protected path, or output beyond 500 MiB. Source state
+is captured before creating outputs, so artifact files cannot turn a clean
+source run into a falsely dirty one. The config hash and source commit remain
+separate identities: the source commit is not the later artifact-publication
+commit.
+
+Training resume is deliberately unsupported. An interrupted or failed run is
+evidence, not an optimizer state: inspect it and restart the entire declared
+run in a fresh output directory. Nothing silently resumes or overwrites.
+
+For a deliberately short config, run:
+
+```bash
+uv run python experiments/04-learned-dynamics/scripts/train.py \
+  --config /path/to/short-training.toml \
+  --output /path/from/that-config
+```
+
+The short CPU and MPS checks establish executable training, deterministic
+selection mechanics, and checkpoint publication. They do not establish model
+accuracy, device speed, training-repeatability tolerances, or final study
+results. Those claims require the frozen study and independent reproduction.
