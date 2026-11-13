@@ -54,10 +54,16 @@ For each implementation ticket, create its focused failing tests, observe the ex
 **Files:**
 
 - Create experiments/03-forward-dynamics/src/forward_dynamics/{__init__,types,dataset,mujoco_predictor}.py
-- Create experiments/03-forward-dynamics/tests/{test_types,test_dataset,test_mujoco_predictor}.py
+- Create experiments/03-forward-dynamics/tests/{test_baselines,test_dataset,test_mujoco_predictor}.py
 - Create experiments/03-forward-dynamics/README.md
 - Modify pyproject.toml to package forward_dynamics and discover its tests
 - Read experiments/02-state-transition-dataset/src/state_transition_dataset/{schema,validation,replay}.py and experiments/01-feedback-control/models/one_link.xml; preserve their contracts
+
+**Verification-path alignment (2026-11-13):** State/action/context validation
+was implemented and tested with the simple baselines in `test_baselines.py`;
+the separately proposed `test_types.py` was not created. The focused command
+below names the implemented coverage. This corrects the documentation path
+identified in issue #11 without changing its behavioral acceptance criteria.
 
 **Interfaces:** Produce frozen DynamicsState(position_rad: float, velocity_rad_s: float), DynamicsContext(environment_id: str, environment_version: str, control_interval_s: float, torque_limit_nm: float), Predictor protocol with predictor_id and predict(state: DynamicsState, applied_torque_nm: float, context: DynamicsContext) -> DynamicsState, and PredictionCase with the identity/state/action/context/boundary fields in the spec. Produce load_prediction_cases(dataset_dir: Path, expected_dataset_version: str) -> tuple[PredictionCase, ...] and MujocoPredictor(model_path: Path), ID mujoco.
 
@@ -79,7 +85,7 @@ For each implementation ticket, create its focused failing tests, observe the ex
 
 - [ ] Write the acceptance tests above; run the focused command and confirm a missing implementation or incorrect behavior fails.
 - [ ] Implement this ticket's interfaces and objectives.
-- [ ] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_types.py experiments/03-forward-dynamics/tests/test_dataset.py experiments/03-forward-dynamics/tests/test_mujoco_predictor.py`; expect success.
+- [ ] Run `uv run pytest -q experiments/03-forward-dynamics/tests/test_baselines.py experiments/03-forward-dynamics/tests/test_dataset.py experiments/03-forward-dynamics/tests/test_mujoco_predictor.py`; expect success.
 - [ ] Run `uv run python -c "import forward_dynamics, feedback_control, state_transition_dataset"`; expect ordinary package/CLI execution to succeed.
 - [ ] Review the acceptance criteria and commit scoped files with `feat: define simulator-backed forward dynamics`.
 
