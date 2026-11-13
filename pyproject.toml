@@ -28,6 +28,7 @@ testpaths = [
     "experiments/01-feedback-control/tests",
     "experiments/02-state-transition-dataset/tests",
     "experiments/03-forward-dynamics/tests",
+    "experiments/04-learned-dynamics/tests",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -35,4 +36,5 @@ packages = [
     "experiments/01-feedback-control/src/feedback_control",
     "experiments/02-state-transition-dataset/src/state_transition_dataset",
     "experiments/03-forward-dynamics/src/forward_dynamics",
+    "experiments/04-learned-dynamics/src/learned_dynamics",
 ]
