@@ -92,6 +92,18 @@ synthetic predictions. The corrected #11 focused command passed **102 tests
 in 2.59 s**. `git diff --check` passed. Commands ran in the clean #26 worktree;
 this is integration verification, not a fresh-environment reproduction.
 
-Merge identities are recorded in the linked PR discussions and Git history.
+The stack was merged in dependency order on 2026-11-13:
+
+| PR | Merge commit |
+| --- | --- |
+| #32 | `1d9161faf5766a5eda1a2ff50469aa3a167344e8` |
+| #33 | `893e1d8636d56b313a2ce53a14210e71aeba9824` |
+| #34 | `16fbb78e27109a869ad0118c5f907f94093a130f` |
+
+The resulting `main` tree is byte-for-byte identical to tested source
+`f99d383`, and that source commit remains an ancestor. Subsequent changes
+in this documentation PR affect only this record and the legacy plan's
+verification path.
+
 These checks establish implementation behavior, not learned accuracy, GPU
 speedup, physical fidelity or Stage 4 completion.
