@@ -3,6 +3,7 @@
 from dataclasses import asdict, dataclass
 import hashlib
 import math
+import os
 from pathlib import Path
 import platform
 import subprocess
@@ -225,6 +226,27 @@ def _source_state() -> tuple[str, bool]:
     return source, dirty
 
 
+def _sysctl_value(name: str) -> str:
+    if platform.system() != "Darwin":
+        return "unavailable"
+    result = subprocess.run(["sysctl", "-n", name], capture_output=True, text=True)
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and value else "unavailable"
+
+
+def _execution_hardware() -> dict:
+    """Record the host identity needed to interpret per-epoch timings."""
+    return {
+        "os": platform.system(), "os_release": platform.release(),
+        "architecture": platform.machine(),
+        "processor": platform.processor() or "unavailable",
+        "hardware_model": _sysctl_value("hw.model"),
+        "logical_cpu_count": os.cpu_count() or 1,
+        "python": platform.python_version(), "torch": torch.__version__,
+        "numpy": np.__version__,
+    }
+
+
 def _curve_payload(config: TrainingConfig, run: RunSpec, curve: tuple[dict, ...],
                    selected_epoch: int | None,
                    selected_validation_mse: float | None) -> dict:
@@ -332,5 +354,6 @@ def train(config_path: Path, output_dir: Path, *, allow_full_study: bool = False
         "normalizer_sha256": normalizer_hash,
         "environment_sha256": SUPPORTED_CONTEXT.environment_version,
         "actual_command": list(sys.argv),
+        "execution_hardware": _execution_hardware(),
     }
     return write_run_manifest(output, config, results, provenance)

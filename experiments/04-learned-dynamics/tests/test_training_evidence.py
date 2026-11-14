@@ -27,6 +27,24 @@ def failed(run_id, reason="synthetic failure"):
                      selected_validation_mse=None, failure_reason=reason)
 
 
+def failed_roster(config, reason="synthetic failure"):
+    results = tuple(failed(run.run_id, reason) for run in config.runs)
+    for run in config.runs:
+        run_dir = config.output_dir / run.run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "learning-curve.json").write_text(json.dumps({
+            "schema_version": 1, "run_id": run.run_id, "run_spec": run.mapping(),
+            "training_config_sha256": config.config_sha256,
+            "selected_epoch": None, "selected_validation_mse": None,
+            "deterministic_algorithms_requested": True, "epochs": [],
+        }))
+        (run_dir / "failure.json").write_text(json.dumps({
+            "schema_version": 1, "run_id": run.run_id, "status": "failed",
+            "failure_reason": reason, "completed_epochs": 0,
+        }))
+    return results
+
+
 def provenance():
     return {
         "source_sha": "a" * 40,
@@ -36,6 +54,12 @@ def provenance():
         "normalizer_sha256": "d" * 64,
         "environment_sha256": "e" * 64,
         "actual_command": ["python", "train.py", "--smoke"],
+        "execution_hardware": {
+            "os": "Darwin", "os_release": "test-release", "architecture": "arm64",
+            "processor": "test-processor", "hardware_model": "test-model",
+            "logical_cpu_count": 8, "python": platform.python_version(),
+            "torch": torch.__version__, "numpy": np.__version__,
+        },
     }
 
 
@@ -44,14 +68,14 @@ def repair_outer_hash(output):
     manifest["files"] = {
         str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted(output.rglob("*"))
-        if path.is_file() and path.name != "manifest.json"
+        if path.is_file() and path.relative_to(output) != Path("manifest.json")
     }
     (output / "manifest.json").write_text(json.dumps(manifest))
 
 
 def test_complete_failed_roster_round_trips_and_is_marked_exploratory(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    results = tuple(failed(run.run_id) for run in config.runs)
+    results = failed_roster(config)
     path = write_run_manifest(config.output_dir, config, results, provenance())
     loaded = load_run_manifest(path)
     assert loaded["publication_status"] == "exploratory_dirty_source"
@@ -71,12 +95,12 @@ def test_missing_duplicate_or_best_seed_only_results_are_rejected(tmp_path, trai
 
 def test_manifest_refuses_overwrite_and_budget_excess(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    results = tuple(failed(run.run_id) for run in config.runs)
+    results = failed_roster(config)
     write_run_manifest(config.output_dir, config, results, provenance())
     with pytest.raises(ValueError, match="exists"):
         write_run_manifest(config.output_dir, config, results, provenance())
     config = replace(config, output_dir=(tmp_path / "small"))
-    config.output_dir.mkdir()
+    results = failed_roster(config)
     with (config.output_dir / "oversized.bin").open("wb") as stream:
         stream.truncate(config.artifact_budget_bytes)
     with pytest.raises(ValueError, match="budget"):
@@ -85,24 +109,22 @@ def test_manifest_refuses_overwrite_and_budget_excess(tmp_path, training_config_
 
 def test_manifest_rejects_symlinked_existing_artifacts(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    config.output_dir.mkdir()
+    results = failed_roster(config)
     outside = tmp_path / "outside"
     outside.write_text("not owned by this run")
     (config.output_dir / "linked").symlink_to(outside)
     with pytest.raises(ValueError, match="symlink"):
-        write_run_manifest(config.output_dir, config,
-                           tuple(failed(run.run_id) for run in config.runs), provenance())
+        write_run_manifest(config.output_dir, config, results, provenance())
 
 
 def test_manifest_inventory_detects_missing_or_changed_run_artifacts(
         tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
+    results = failed_roster(config)
     artifact = config.output_dir / config.runs[0].run_id / "diagnostic.json"
-    artifact.parent.mkdir(parents=True)
     artifact.write_text('{"partial": true}')
     output = write_run_manifest(
-        config.output_dir, config,
-        tuple(failed(run.run_id) for run in config.runs), provenance())
+        config.output_dir, config, results, provenance())
     artifact.write_text('{"partial": false}')
     with pytest.raises(ValueError, match="checksums"):
         load_run_manifest(output)
@@ -110,7 +132,7 @@ def test_manifest_inventory_detects_missing_or_changed_run_artifacts(
 
 def test_loader_rejects_tampered_epoch_duplicate_json_hashes_and_schema(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    results = tuple(failed(run.run_id) for run in config.runs)
+    results = failed_roster(config)
     output = write_run_manifest(config.output_dir, config, results, provenance())
     payload = json.loads((output / "run-manifest.json").read_text())
     payload["results"][0]["selected_epoch"] = config.epochs + 1
@@ -140,8 +162,7 @@ def test_loader_rejects_tampered_epoch_duplicate_json_hashes_and_schema(tmp_path
 
 def test_loader_rejects_invalid_provenance_hash_even_with_repaired_outer_hash(tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    output = write_run_manifest(config.output_dir, config,
-                                tuple(failed(run.run_id) for run in config.runs), provenance())
+    output = write_run_manifest(config.output_dir, config, failed_roster(config), provenance())
     payload = json.loads((output / "run-manifest.json").read_text())
     payload["provenance"]["normalizer_sha256"] = "not-a-hash"
     (output / "run-manifest.json").write_text(json.dumps(payload))
@@ -153,8 +174,7 @@ def test_loader_rejects_invalid_provenance_hash_even_with_repaired_outer_hash(tm
 def test_original_config_snapshot_prevents_concealing_missing_roster_rows(
         tmp_path, training_config_writer):
     config = load_training_config(training_config_writer(tmp_path / "training.toml"))
-    output = write_run_manifest(config.output_dir, config,
-                                tuple(failed(run.run_id) for run in config.runs), provenance())
+    output = write_run_manifest(config.output_dir, config, failed_roster(config), provenance())
     payload = json.loads((output / "run-manifest.json").read_text())
     payload["planned_runs"] = payload["planned_runs"][:1]
     payload["results"] = payload["results"][:1]
@@ -170,6 +190,45 @@ def test_clean_source_manifest_requires_a_resolvable_commit(tmp_path, training_c
     with pytest.raises(ValueError, match="resolve"):
         write_run_manifest(config.output_dir, config,
                            tuple(failed(run.run_id) for run in config.runs), clean)
+
+
+@pytest.mark.parametrize("missing_name", ["learning-curve.json", "failure.json"])
+def test_failed_run_requires_both_structured_artifacts_even_with_repaired_outer_hash(
+        tmp_path, training_config_writer, missing_name):
+    config = load_training_config(training_config_writer(
+        tmp_path / "training.toml", seeds=(0,)))
+    output = write_run_manifest(config.output_dir, config, failed_roster(config), provenance())
+    (output / config.runs[0].run_id / missing_name).unlink()
+    repair_outer_hash(output)
+    with pytest.raises(ValueError, match="failed run evidence"):
+        load_run_manifest(output)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("failure_reason", "concealed failure"),
+    ("completed_epochs", 1),
+])
+def test_failed_run_semantics_are_independently_audited(
+        tmp_path, training_config_writer, field, value):
+    config = load_training_config(training_config_writer(
+        tmp_path / "training.toml", seeds=(0,)))
+    output = write_run_manifest(config.output_dir, config, failed_roster(config), provenance())
+    path = output / config.runs[0].run_id / "failure.json"
+    payload = json.loads(path.read_text())
+    payload[field] = value
+    path.write_text(json.dumps(payload))
+    repair_outer_hash(output)
+    with pytest.raises(ValueError, match="failed run evidence"):
+        load_run_manifest(output)
+
+
+def test_training_timing_requires_hardware_identity(tmp_path, training_config_writer):
+    config = load_training_config(training_config_writer(
+        tmp_path / "training.toml", seeds=(0,)))
+    incomplete = provenance()
+    del incomplete["execution_hardware"]
+    with pytest.raises(ValueError, match="execution hardware"):
+        write_run_manifest(config.output_dir, config, failed_roster(config), incomplete)
 
 
 def test_success_checkpoint_must_match_the_planned_run_identity(tmp_path, training_config_writer):

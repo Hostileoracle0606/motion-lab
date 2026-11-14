@@ -65,14 +65,27 @@ def test_training_cli_help_and_short_configured_cpu_run(tmp_path, committed_conf
     assert "already exists" in repeated.stderr
 
     curve_path = next((tmp_path / "results").glob("*/learning-curve.json"))
-    curve["selected_validation_mse"] += 1.0
-    curve_path.write_text(json.dumps(curve))
     outer_path = tmp_path / "results/manifest.json"
     outer = json.loads(outer_path.read_text())
     import hashlib
-    outer["files"][str(curve_path.relative_to(tmp_path / "results"))] = hashlib.sha256(
-        curve_path.read_bytes()).hexdigest()
-    outer_path.write_text(json.dumps(outer))
+
+    def repair_curve_hash():
+        outer["files"][str(curve_path.relative_to(tmp_path / "results"))] = hashlib.sha256(
+            curve_path.read_bytes()).hexdigest()
+        outer_path.write_text(json.dumps(outer))
+
+    original_curve = json.loads(curve_path.read_text())
+    curve["epochs"][0]["batch_sizes"][0] -= 1
+    curve["epochs"][0]["batch_sizes"][-1] += 1
+    curve_path.write_text(json.dumps(curve))
+    repair_curve_hash()
+    with pytest.raises(ValueError, match="original training membership"):
+        load_run_manifest(tmp_path / "results")
+
+    curve = original_curve
+    curve["selected_validation_mse"] += 1.0
+    curve_path.write_text(json.dumps(curve))
+    repair_curve_hash()
     with pytest.raises(ValueError, match="learning curve selected metric"):
         load_run_manifest(tmp_path / "results")
 

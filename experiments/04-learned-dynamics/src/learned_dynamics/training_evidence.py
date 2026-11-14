@@ -1,6 +1,7 @@
 """Complete, non-overwriting run rosters for training and selection."""
 
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 import hashlib
 from pathlib import Path
 import math
@@ -19,13 +20,22 @@ from learned_dynamics.config import (
     PROTOCOL_SAMPLER_SEED_OFFSET, PROTOCOL_VALIDATION_INTERVAL_EPOCHS,
     RunSpec, TrainingConfig,
 )
+from learned_dynamics.data import load_views
 from learned_dynamics.types import DATASET_VERSION, ModelSpec, validate_hash
+from learned_dynamics.windows import make_windows
 
 
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 PROVENANCE_FIELDS = {
     "source_sha", "working_tree_dirty", "dataset_manifest_sha256", "train_sha256",
-    "normalizer_sha256", "environment_sha256", "actual_command",
+    "normalizer_sha256", "environment_sha256", "actual_command", "execution_hardware",
+}
+EXECUTION_HARDWARE_FIELDS = {
+    "os", "os_release", "architecture", "processor", "hardware_model",
+    "logical_cpu_count", "python", "torch", "numpy",
+}
+FAILURE_FIELDS = {
+    "schema_version", "run_id", "status", "failure_reason", "completed_epochs",
 }
 PAYLOAD_FIELDS = {
     "schema_version", "publication_status", "training_config_sha256", "config",
@@ -44,6 +54,9 @@ EPOCH_FIELDS = {
     "epoch", "training_loss", "validation_mse", "batch_sizes",
     "updates_this_epoch", "optimizer_updates", "training_seconds",
 }
+TRAINING_DATASET_DIR = (
+    REPOSITORY_ROOT / "experiments/02-state-transition-dataset/data/dataset-v1"
+)
 
 
 @dataclass(frozen=True)
@@ -95,6 +108,8 @@ def _config_mapping(config: TrainingConfig) -> dict:
 
 
 def _validate_provenance(value: object) -> None:
+    if isinstance(value, dict) and "execution_hardware" not in value:
+        raise ValueError("execution hardware is required when training timing is recorded")
     require_fields(value, PROVENANCE_FIELDS, "training provenance")
     if not isinstance(value["source_sha"], str) or re.fullmatch(r"[0-9a-f]{40}", value["source_sha"]) is None:
         raise ValueError("source_sha must be a full lowercase commit SHA")
@@ -111,6 +126,13 @@ def _validate_provenance(value: object) -> None:
     if (not isinstance(command, list) or not command or
             any(not isinstance(part, str) or not part for part in command)):
         raise ValueError("actual_command must be a nonempty string array")
+    hardware = value["execution_hardware"]
+    require_fields(hardware, EXECUTION_HARDWARE_FIELDS, "execution hardware")
+    for field in EXECUTION_HARDWARE_FIELDS - {"logical_cpu_count"}:
+        if not isinstance(hardware[field], str) or not hardware[field]:
+            raise ValueError(f"execution hardware {field} must be a nonempty string")
+    if type(hardware["logical_cpu_count"]) is not int or hardware["logical_cpu_count"] <= 0:
+        raise ValueError("execution hardware logical_cpu_count must be a positive integer")
 
 
 def _validate_result(value: object, run: dict, epochs: int, root: Path | None,
@@ -125,8 +147,13 @@ def _validate_result(value: object, run: dict, epochs: int, root: Path | None,
             raise ValueError("failed run evidence is inconsistent")
         if root is not None:
             curve_path = root / value["run_id"] / "learning-curve.json"
-            if curve_path.is_file():
-                _validate_curve(curve_path, value, run, epochs, config_sha256)
+            failure_path = root / value["run_id"] / "failure.json"
+            if (curve_path.is_symlink() or not curve_path.is_file() or
+                    failure_path.is_symlink() or not failure_path.is_file()):
+                raise ValueError("failed run evidence is missing or unsafe")
+            completed = _validate_curve(
+                curve_path, value, run, epochs, config_sha256, provenance)
+            _validate_failure(failure_path, value, completed)
         return
     if value["status"] != "success":
         raise ValueError("unsupported run status")
@@ -155,7 +182,7 @@ def _validate_result(value: object, run: dict, epochs: int, root: Path | None,
         require_equal(bundle.metadata["context"]["environment_version"],
                       provenance["environment_sha256"], "checkpoint environment hash")
         _validate_curve(root / value["run_id"] / "learning-curve.json", value, run,
-                        epochs, config_sha256)
+                        epochs, config_sha256, provenance)
 
 
 def _finite_nonnegative(value: object, description: str) -> float:
@@ -164,8 +191,32 @@ def _finite_nonnegative(value: object, description: str) -> float:
     return float(value)
 
 
+@lru_cache(maxsize=8)
+def _membership_counts(manifest_sha256: str, train_sha256: str) -> dict[str, int]:
+    views = load_views(TRAINING_DATASET_DIR, DATASET_VERSION)
+    require_equal(views.train.view.manifest_sha256, manifest_sha256,
+                  "training membership dataset manifest")
+    require_equal(views.train.view.train_sha256, train_sha256,
+                  "training membership partition")
+    history, _ = make_windows(views.train, 1, 1)
+    loss, _ = make_windows(views.train, 5, 0)
+    return {"all": len(views.train.cases), "history_common": len(history),
+            "loss_common": len(loss)}
+
+
+def _expected_batch_sizes(run: dict, provenance: dict) -> list[int]:
+    membership = run["run_spec"]["membership"]
+    try:
+        count = _membership_counts(
+            provenance["dataset_manifest_sha256"], provenance["train_sha256"])[membership]
+    except KeyError as error:
+        raise ValueError("unsupported original training membership") from error
+    complete, remainder = divmod(count, PROTOCOL_BATCH_SIZE)
+    return [PROTOCOL_BATCH_SIZE] * complete + ([remainder] if remainder else [])
+
+
 def _validate_curve(path: Path, result: dict, run: dict, epochs: int,
-                    config_sha256: str) -> None:
+                    config_sha256: str, provenance: dict) -> int:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_MANIFEST_BYTES:
         raise ValueError("learning curve is missing, unsafe or oversized")
     curve = decode_object(path.read_text())
@@ -183,6 +234,7 @@ def _validate_curve(path: Path, result: dict, run: dict, epochs: int,
         raise ValueError("learning curve epoch count exceeds configured budget")
     expected_updates = 0
     validation_values = []
+    expected_batch_sizes = _expected_batch_sizes(run, provenance) if rows else None
     for expected_epoch, row in enumerate(rows, start=1):
         require_fields(row, EPOCH_FIELDS, "learning curve epoch")
         if type(row["epoch"]) is not int or row["epoch"] != expected_epoch:
@@ -195,6 +247,7 @@ def _validate_curve(path: Path, result: dict, run: dict, epochs: int,
                 any(type(size) is not int or not 1 <= size <= PROTOCOL_BATCH_SIZE
                     for size in sizes)):
             raise ValueError("learning curve batch sizes are invalid")
+        require_equal(sizes, expected_batch_sizes, "original training membership batch partition")
         if type(row["updates_this_epoch"]) is not int or row["updates_this_epoch"] != len(sizes):
             raise ValueError("learning curve update count disagrees with batch sizes")
         expected_updates += len(sizes)
@@ -218,6 +271,19 @@ def _validate_curve(path: Path, result: dict, run: dict, epochs: int,
                       "learning curve selected metric")
     elif curve["selected_epoch"] is not None or curve["selected_validation_mse"] is not None:
         raise ValueError("failed learning curve cannot declare a selection")
+    return len(rows)
+
+
+def _validate_failure(path: Path, result: dict, completed_epochs: int) -> None:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_MANIFEST_BYTES:
+        raise ValueError("failed run evidence is missing, unsafe or oversized")
+    failure = decode_object(path.read_text())
+    require_fields(failure, FAILURE_FIELDS, "failed run evidence")
+    expected = {
+        "schema_version": 1, "run_id": result["run_id"], "status": "failed",
+        "failure_reason": result["failure_reason"], "completed_epochs": completed_epochs,
+    }
+    require_equal(failure, expected, "failed run evidence")
 
 
 def _validate_config_snapshot(root: Path, payload: dict) -> None:

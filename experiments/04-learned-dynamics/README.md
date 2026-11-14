@@ -213,6 +213,18 @@ selection. Failed runs retain every fully completed epoch plus the failure
 reason and completed-epoch count; a partially executed epoch is not reported as
 complete.
 
+Every failed manifest row requires both `learning-curve.json` (including a
+legitimate empty curve when failure precedes epoch 1) and `failure.json`.
+Loading independently checks their run/config identities, exact reason, and
+completed-epoch agreement. For every completed epoch, the recorded batch
+partition must equal the complete membership reconstructed from the immutable
+training dataset: this proves the smaller final batch and update count rather
+than only checking internal arithmetic. Because curves publish training wall
+time, the manifest also records OS release, architecture, processor, hardware
+model, logical CPU count, and Python/PyTorch/NumPy versions. Detailed power,
+load, thread, and synchronized device-benchmark evidence remains owned by the
+later benchmarking task.
+
 Training resume is deliberately unsupported. An interrupted or failed run is
 evidence, not an optimizer state: inspect it and restart the entire declared
 run in a fresh output directory. Nothing silently resumes or overwrites.
