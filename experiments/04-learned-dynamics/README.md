@@ -1,7 +1,8 @@
 # Experiment 04 — Learned dynamics
 
-Status: data/preprocessing APIs (#25) and the residual predictor (#26) are implemented. Model training,
-CPU/MPS comparisons and prediction results remain planned.
+Status: data/preprocessing APIs (#25), residual prediction (#26), training orchestration (#27),
+and the independent evaluation/evidence machinery (#28) are implemented. The frozen 45-run study,
+CPU/MPS benchmarking, and final learned prediction results remain planned in #29.
 
 The [approved design](../../docs/superpowers/specs/2026-11-10-learned-dynamics-design.md)
 and [implementation plan](../../docs/superpowers/plans/2026-11-11-learned-dynamics.md)
@@ -241,3 +242,52 @@ The short CPU and MPS checks establish executable training, deterministic
 selection mechanics, and checkpoint publication. They do not establish model
 accuracy, device speed, training-repeatability tolerances, or final study
 results. Those claims require the frozen study and independent reproduction.
+
+## Independent learned evaluation evidence
+
+`configs/evaluation-v1.toml` freezes the six Stage 3 baselines, horizons
+1/5/10/25/50/100, and the `all`, `history_common`, and `loss_common`
+memberships. `evaluate(...)` recursively feeds each predicted state into the
+next step while retaining the original recorded action sequence. The history
+model shifts predicted state history and recorded action history together;
+future observed states are endpoints for scoring only. Every declared start is
+retained as success, failed prediction, or unavailable. A failed training run
+therefore remains in eligible denominators instead of disappearing from the
+roster.
+
+Stage 4 owns this new schema. Stage 3 full and legacy evidence formats and
+loaders are unchanged. Baselines are constructed once per evaluation run and
+have null training identities. Learned records bind the complete run
+specification, training-config hash, selected epoch/validation metric,
+checkpoint-relative path, and checkpoint manifest hash.
+
+`load_evidence(input_dir)` is the report-facing boundary. It verifies the
+outer inventory, exact config and roster snapshots, immutable dataset bytes,
+the complete test membership, every episode-local action and expected
+endpoint, success/failure/unavailable denominators, physical-unit residuals,
+and all saved summaries. It performs no fitting, model inference, checkpoint
+materialization, or simulator calls. Repairing outer hashes after changing a
+seed, action, endpoint, checkpoint/selection identity, residual, count, or
+aggregate still fails the semantic audit.
+
+Checkpoint provenance needs a stronger, deliberately separate operation:
+`replay_checkpoints(input_dir, device)` reloads the independently validated
+training roster and each successful checkpoint, regenerates its recursive
+records, and requires exact agreement with the saved learned predictions.
+Keeping replay separate lets report generation remain inference-free while
+still providing executable proof that the recorded predictions came from the
+declared weights.
+
+The CLIs are intentionally gated in this task:
+
+```bash
+uv run python experiments/04-learned-dynamics/scripts/run_evaluation.py --help
+uv run python experiments/04-learned-dynamics/scripts/replay_checkpoints.py --help
+```
+
+The first command requires `--allow-final-test` before executing the real test
+protocol. Issue #28 exercises only short synthetic records and checkpoint
+replay fixtures; #29 owns the one-time frozen 45-run study and final learned
+test evaluation. Consequently this implementation establishes evaluation and
+audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
+generalization beyond the four simulated scenarios and single collection seed.
