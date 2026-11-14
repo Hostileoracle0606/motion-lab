@@ -1,0 +1,477 @@
+schema_version = 1
+dataset_dir = "../../02-state-transition-dataset/data/dataset-v1"
+dataset_version = "experiment-02-transition-v1"
+output_dir = "../results/training-v1"
+artifact_budget_bytes = 524288000
+resume = "reject"
+
+[training]
+epochs = 300
+batch_size = 64
+sampler_seed_offset = 100000
+validation_interval_epochs = 1
+selection_metric = "validation_normalized_one_step_mse"
+tie_break = "earliest_epoch"
+
+[optimizer]
+name = "adam"
+learning_rate = 0.001
+beta1 = 0.9
+beta2 = 0.999
+epsilon = 1e-8
+weight_decay = 0.0
+
+[normalization]
+statistics = "float64_population_std"
+constant_threshold = 1e-12
+target_transform = "next_minus_current"
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "capacity16"
+hidden_width = 16
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "capacity16"
+hidden_width = 16
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "capacity16"
+hidden_width = 16
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "capacity16"
+hidden_width = 16
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "capacity16"
+hidden_width = 16
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history0"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "history_common"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history0"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "history_common"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history0"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "history_common"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history0"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "history_common"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history0"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "history_common"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history1"
+hidden_width = 32
+history_steps = 1
+loss = "one_step"
+membership = "history_common"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history1"
+hidden_width = 32
+history_steps = 1
+loss = "one_step"
+membership = "history_common"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history1"
+hidden_width = 32
+history_steps = 1
+loss = "one_step"
+membership = "history_common"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history1"
+hidden_width = 32
+history_steps = 1
+loss = "one_step"
+membership = "history_common"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "history1"
+hidden_width = 32
+history_steps = 1
+loss = "one_step"
+membership = "history_common"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss1"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "loss_common"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss1"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "loss_common"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss1"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "loss_common"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss1"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "loss_common"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss1"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "loss_common"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss5"
+hidden_width = 32
+history_steps = 0
+loss = "rollout_5"
+membership = "loss_common"
+seed = 0
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss5"
+hidden_width = 32
+history_steps = 0
+loss = "rollout_5"
+membership = "loss_common"
+seed = 1
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss5"
+hidden_width = 32
+history_steps = 0
+loss = "rollout_5"
+membership = "loss_common"
+seed = 2
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss5"
+hidden_width = 32
+history_steps = 0
+loss = "rollout_5"
+membership = "loss_common"
+seed = 3
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "loss5"
+hidden_width = 32
+history_steps = 0
+loss = "rollout_5"
+membership = "loss_common"
+seed = 4
+device = "mps"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 0
+device = "mps"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 1
+device = "mps"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 2
+device = "mps"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 3
+device = "mps"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 4
+device = "mps"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 0
+device = "cpu"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 1
+device = "cpu"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 2
+device = "cpu"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 3
+device = "cpu"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 4
+device = "cpu"
+repeat = 0
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 0
+device = "cpu"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 1
+device = "cpu"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 2
+device = "cpu"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 3
+device = "cpu"
+repeat = 1
+
+[[runs]]
+variant_id = "canonical32"
+hidden_width = 32
+history_steps = 0
+loss = "one_step"
+membership = "all"
+seed = 4
+device = "cpu"
+repeat = 1
