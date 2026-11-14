@@ -63,6 +63,33 @@ def test_nonfinite_training_is_retained_as_failed_run(tmp_path, training_config_
     assert evidence["status"] == "failed"
 
 
+def test_later_epoch_failure_retains_completed_curve(tmp_path, training_config_writer,
+                                                      synthetic_views, monkeypatch):
+    import learned_dynamics.training as training_module
+
+    config = load_training_config(training_config_writer(
+        tmp_path / "training.toml", seeds=(0,), epochs=3))
+    train, validation, _ = synthetic_views
+    original = training_module._validation_loss
+    calls = 0
+
+    def fail_on_second_epoch(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise ValueError("synthetic later-epoch failure")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(training_module, "_validation_loss", fail_on_second_epoch)
+    result = train_run(config, config.runs[0], train, validation, config.output_dir)
+    assert result.status == "failed"
+    curve = json.loads((config.output_dir / result.run_id / "learning-curve.json").read_text())
+    assert [row["epoch"] for row in curve["epochs"]] == [1]
+    assert curve["selected_epoch"] is None
+    failure = json.loads((config.output_dir / result.run_id / "failure.json").read_text())
+    assert failure["completed_epochs"] == 1
+
+
 def test_diagnostic_pairs_share_starts_and_update_counts(tmp_path, committed_config_writer):
     config = load_training_config(committed_config_writer(tmp_path / "training.toml", epochs=1,
                                                           seeds=(0,)))

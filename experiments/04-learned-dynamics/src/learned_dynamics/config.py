@@ -18,6 +18,10 @@ PROTOCOL_VARIANTS = {
     "loss1": (32, 0, "one_step", "loss_common"),
     "loss5": (32, 0, "rollout_5", "loss_common"),
 }
+PROTOCOL_BATCH_SIZE = 64
+PROTOCOL_SAMPLER_SEED_OFFSET = 100000
+PROTOCOL_VALIDATION_INTERVAL_EPOCHS = 1
+PROTOCOL_ARTIFACT_BUDGET_BYTES = 500 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -103,6 +107,11 @@ class TrainingConfig:
                 raise ValueError(f"{field} must be a positive integer")
         if not 1 <= self.epochs <= 300:
             raise ValueError("epochs must be in 1..300")
+        if (self.batch_size != PROTOCOL_BATCH_SIZE or
+                self.sampler_seed_offset != PROTOCOL_SAMPLER_SEED_OFFSET or
+                self.validation_interval_epochs != PROTOCOL_VALIDATION_INTERVAL_EPOCHS or
+                self.artifact_budget_bytes != PROTOCOL_ARTIFACT_BUDGET_BYTES):
+            raise ValueError("training settings do not match protocol v1")
         if self.dataset_version != DATASET_VERSION:
             raise ValueError("unsupported dataset version")
         if (self.selection_metric != "validation_normalized_one_step_mse" or

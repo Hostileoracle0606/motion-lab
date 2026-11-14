@@ -7,6 +7,8 @@ import sys
 import numpy as np
 import pytest
 
+from learned_dynamics.training_evidence import load_run_manifest
+
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "experiments/04-learned-dynamics/scripts/smoke_predictor.py"
@@ -51,6 +53,9 @@ def test_training_cli_help_and_short_configured_cpu_run(tmp_path, committed_conf
     assert payload["successful_runs"] == 1
     assert (tmp_path / "results/run-manifest.json").is_file()
     curve = json.loads(next((tmp_path / "results").glob("*/learning-curve.json")).read_text())
+    manifest = json.loads((tmp_path / "results/run-manifest.json").read_text())
+    assert curve["training_config_sha256"] == manifest["training_config_sha256"]
+    assert curve["run_spec"]["seed"] == 0
     assert curve["epochs"][0]["batch_sizes"][-1] == 44
     assert curve["epochs"][0]["updates_this_epoch"] == 15
     repeated = subprocess.run([sys.executable, str(TRAIN_SCRIPT), "--config", str(config),
@@ -58,6 +63,18 @@ def test_training_cli_help_and_short_configured_cpu_run(tmp_path, committed_conf
                               capture_output=True, text=True)
     assert repeated.returncode != 0
     assert "already exists" in repeated.stderr
+
+    curve_path = next((tmp_path / "results").glob("*/learning-curve.json"))
+    curve["selected_validation_mse"] += 1.0
+    curve_path.write_text(json.dumps(curve))
+    outer_path = tmp_path / "results/manifest.json"
+    outer = json.loads(outer_path.read_text())
+    import hashlib
+    outer["files"][str(curve_path.relative_to(tmp_path / "results"))] = hashlib.sha256(
+        curve_path.read_bytes()).hexdigest()
+    outer_path.write_text(json.dumps(outer))
+    with pytest.raises(ValueError, match="learning curve selected metric"):
+        load_run_manifest(tmp_path / "results")
 
 
 def test_short_synthetic_fit_on_actual_mps(tmp_path, training_config_writer, synthetic_views):

@@ -202,6 +202,17 @@ source run into a falsely dirty one. The config hash and source commit remain
 separate identities: the source commit is not the later artifact-publication
 commit.
 
+Protocol-defining batch size, sampler offset, validation cadence, optimizer,
+normalization, and 500 MiB budget are rejected during config loading if they
+differ from schema v1; they cannot fail only after an expensive fit. Publication
+copies the exact TOML alongside the manifest, verifies its hash, and reconstructs
+the declared roster from that snapshot. The outer manifest inventories every
+run artifact. On load, successful curves must cover every configured epoch and
+their earliest validation minimum must equal both the checkpoint and manifest
+selection. Failed runs retain every fully completed epoch plus the failure
+reason and completed-epoch count; a partially executed epoch is not reported as
+complete.
+
 Training resume is deliberately unsupported. An interrupted or failed run is
 evidence, not an optimizer state: inspect it and restart the entire declared
 run in a fresh output directory. Nothing silently resumes or overwrites.

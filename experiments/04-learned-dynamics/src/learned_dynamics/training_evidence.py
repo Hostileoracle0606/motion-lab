@@ -7,14 +7,19 @@ import math
 import re
 import subprocess
 import tempfile
+import tomllib
 
 from forward_dynamics.serialization import (
     decode_object, json_bytes, require_equal, require_fields, sha256_file,
 )
 from learned_dynamics.checkpoint import load_checkpoint
 from learned_dynamics.checkpoint_metadata import REPOSITORY_ROOT
-from learned_dynamics.config import RunSpec, TrainingConfig
-from learned_dynamics.types import ModelSpec, validate_hash
+from learned_dynamics.config import (
+    PROTOCOL_ARTIFACT_BUDGET_BYTES, PROTOCOL_BATCH_SIZE,
+    PROTOCOL_SAMPLER_SEED_OFFSET, PROTOCOL_VALIDATION_INTERVAL_EPOCHS,
+    RunSpec, TrainingConfig,
+)
+from learned_dynamics.types import DATASET_VERSION, ModelSpec, validate_hash
 
 
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
@@ -29,6 +34,15 @@ PAYLOAD_FIELDS = {
 RESULT_FIELDS = {
     "run_id", "status", "checkpoint_dir", "checkpoint_sha256", "selected_epoch",
     "selected_validation_mse", "failure_reason",
+}
+CURVE_FIELDS = {
+    "schema_version", "run_id", "run_spec", "training_config_sha256",
+    "selected_epoch", "selected_validation_mse",
+    "deterministic_algorithms_requested", "epochs",
+}
+EPOCH_FIELDS = {
+    "epoch", "training_loss", "validation_mse", "batch_sizes",
+    "updates_this_epoch", "optimizer_updates", "training_seconds",
 }
 
 
@@ -65,7 +79,8 @@ class RunResult:
 
 def _config_mapping(config: TrainingConfig) -> dict:
     return {
-        "schema_version": config.schema_version, "epochs": config.epochs,
+        "schema_version": config.schema_version, "dataset_version": config.dataset_version,
+        "epochs": config.epochs,
         "batch_size": config.batch_size, "sampler_seed_offset": config.sampler_seed_offset,
         "validation_interval_epochs": config.validation_interval_epochs,
         "selection_metric": config.selection_metric, "tie_break": config.tie_break,
@@ -108,6 +123,10 @@ def _validate_result(value: object, run: dict, epochs: int, root: Path | None,
                 "checkpoint_dir", "checkpoint_sha256", "selected_epoch", "selected_validation_mse")) or
                 not isinstance(value["failure_reason"], str) or not value["failure_reason"].strip()):
             raise ValueError("failed run evidence is inconsistent")
+        if root is not None:
+            curve_path = root / value["run_id"] / "learning-curve.json"
+            if curve_path.is_file():
+                _validate_curve(curve_path, value, run, epochs, config_sha256)
         return
     if value["status"] != "success":
         raise ValueError("unsupported run status")
@@ -135,28 +154,148 @@ def _validate_result(value: object, run: dict, epochs: int, root: Path | None,
             require_equal(bundle.metadata[field], provenance[field], f"checkpoint {field}")
         require_equal(bundle.metadata["context"]["environment_version"],
                       provenance["environment_sha256"], "checkpoint environment hash")
+        _validate_curve(root / value["run_id"] / "learning-curve.json", value, run,
+                        epochs, config_sha256)
 
 
-def _validate_payload(payload: dict, root: Path | None) -> None:
+def _finite_nonnegative(value: object, description: str) -> float:
+    if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+        raise ValueError(f"{description} must be finite and nonnegative")
+    return float(value)
+
+
+def _validate_curve(path: Path, result: dict, run: dict, epochs: int,
+                    config_sha256: str) -> None:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_MANIFEST_BYTES:
+        raise ValueError("learning curve is missing, unsafe or oversized")
+    curve = decode_object(path.read_text())
+    require_fields(curve, CURVE_FIELDS, "learning curve")
+    if type(curve["schema_version"]) is not int or curve["schema_version"] != 1:
+        raise ValueError("unsupported learning curve schema")
+    require_equal(curve["run_id"], result["run_id"], "learning curve run id")
+    require_equal(curve["run_spec"], run["run_spec"], "learning curve run specification")
+    require_equal(curve["training_config_sha256"], config_sha256,
+                  "learning curve config hash")
+    if curve["deterministic_algorithms_requested"] is not True:
+        raise ValueError("learning curve must record the deterministic algorithm request")
+    rows = curve["epochs"]
+    if not isinstance(rows, list) or len(rows) > epochs:
+        raise ValueError("learning curve epoch count exceeds configured budget")
+    expected_updates = 0
+    validation_values = []
+    for expected_epoch, row in enumerate(rows, start=1):
+        require_fields(row, EPOCH_FIELDS, "learning curve epoch")
+        if type(row["epoch"]) is not int or row["epoch"] != expected_epoch:
+            raise ValueError("learning curve epochs must be consecutive from one")
+        _finite_nonnegative(row["training_loss"], "learning curve training loss")
+        validation_values.append(_finite_nonnegative(
+            row["validation_mse"], "learning curve validation MSE"))
+        sizes = row["batch_sizes"]
+        if (not isinstance(sizes, list) or not sizes or
+                any(type(size) is not int or not 1 <= size <= PROTOCOL_BATCH_SIZE
+                    for size in sizes)):
+            raise ValueError("learning curve batch sizes are invalid")
+        if type(row["updates_this_epoch"]) is not int or row["updates_this_epoch"] != len(sizes):
+            raise ValueError("learning curve update count disagrees with batch sizes")
+        expected_updates += len(sizes)
+        if type(row["optimizer_updates"]) is not int or row["optimizer_updates"] != expected_updates:
+            raise ValueError("learning curve optimizer updates are not cumulative")
+        _finite_nonnegative(row["training_seconds"], "learning curve timing")
+    if result["status"] == "success":
+        if len(rows) != epochs:
+            raise ValueError("successful learning curve is incomplete")
+        if (type(curve["selected_epoch"]) is not int or
+                type(curve["selected_validation_mse"]) not in (int, float)):
+            raise ValueError("successful learning curve selection has invalid types")
+        selected_epoch = validation_values.index(min(validation_values)) + 1
+        if curve["selected_epoch"] != selected_epoch:
+            raise ValueError("learning curve selected epoch is not the earliest minimum")
+        if curve["selected_validation_mse"] != validation_values[selected_epoch - 1]:
+            raise ValueError("learning curve selected metric disagrees with its epochs")
+        require_equal(curve["selected_epoch"], result["selected_epoch"],
+                      "learning curve selected epoch")
+        require_equal(curve["selected_validation_mse"], result["selected_validation_mse"],
+                      "learning curve selected metric")
+    elif curve["selected_epoch"] is not None or curve["selected_validation_mse"] is not None:
+        raise ValueError("failed learning curve cannot declare a selection")
+
+
+def _validate_config_snapshot(root: Path, payload: dict) -> None:
+    path = root / "training-config.toml"
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_MANIFEST_BYTES:
+        raise ValueError("original training config snapshot is missing, unsafe or oversized")
+    require_equal(sha256_file(path), payload["training_config_sha256"],
+                  "original training config hash")
+    try:
+        raw = tomllib.loads(path.read_text())
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        raise ValueError("cannot read original training config snapshot") from error
+    try:
+        training = raw["training"]
+        optimizer = raw["optimizer"]
+        normalization = raw["normalization"]
+        snapshot_config = {
+            "schema_version": raw["schema_version"],
+            "dataset_version": raw["dataset_version"],
+            "epochs": training["epochs"], "batch_size": training["batch_size"],
+            "sampler_seed_offset": training["sampler_seed_offset"],
+            "validation_interval_epochs": training["validation_interval_epochs"],
+            "selection_metric": training["selection_metric"],
+            "tie_break": training["tie_break"],
+            "artifact_budget_bytes": raw["artifact_budget_bytes"],
+            "resume": raw["resume"],
+            "optimizer": {
+                "name": optimizer["name"], "learning_rate": optimizer["learning_rate"],
+                "betas": [optimizer["beta1"], optimizer["beta2"]],
+                "epsilon": optimizer["epsilon"], "weight_decay": optimizer["weight_decay"],
+            },
+            "normalization": {
+                "statistics": normalization["statistics"],
+                "constant_threshold": normalization["constant_threshold"],
+                "target_transform": normalization["target_transform"],
+            },
+        }
+    except (KeyError, TypeError) as error:
+        raise ValueError("original training config settings are incomplete") from error
+    require_equal(payload["config"], snapshot_config, "original training config settings")
+    if not isinstance(raw.get("runs"), list):
+        raise ValueError("original training config roster is missing")
+    planned = []
+    for value in raw["runs"]:
+        require_fields(value, {
+            "variant_id", "hidden_width", "history_steps", "loss", "membership",
+            "seed", "device", "repeat",
+        }, "original training config run")
+        spec = RunSpec(value["variant_id"], ModelSpec(value["hidden_width"], value["history_steps"]),
+                       value["loss"], value["membership"], value["seed"], value["device"],
+                       value["repeat"])
+        planned.append({"run_id": spec.run_id, "run_spec": spec.mapping()})
+    require_equal(payload["planned_runs"], planned, "original training config roster")
+
+
+def _validate_payload(payload: dict, root: Path | None, *, validate_snapshot: bool = True) -> None:
     require_fields(payload, PAYLOAD_FIELDS, "training run manifest")
     if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
         raise ValueError("unsupported run manifest schema")
     validate_hash(payload["training_config_sha256"])
     config = payload["config"]
     require_fields(config, {
-        "schema_version", "epochs", "batch_size", "sampler_seed_offset",
+        "schema_version", "dataset_version", "epochs", "batch_size", "sampler_seed_offset",
         "validation_interval_epochs", "selection_metric", "tie_break",
         "artifact_budget_bytes", "resume", "optimizer", "normalization",
     }, "embedded training settings")
     for field in ("epochs", "batch_size", "sampler_seed_offset", "validation_interval_epochs", "artifact_budget_bytes"):
         if type(config[field]) is not int or config[field] <= 0:
             raise ValueError(f"embedded {field} must be a positive integer")
-    if (not 1 <= config["epochs"] <= 300 or config["batch_size"] != 64 or
-            config["sampler_seed_offset"] != 100000 or
-            config["validation_interval_epochs"] != 1 or
+    if (not 1 <= config["epochs"] <= 300 or config["batch_size"] != PROTOCOL_BATCH_SIZE or
+            config["sampler_seed_offset"] != PROTOCOL_SAMPLER_SEED_OFFSET or
+            config["validation_interval_epochs"] != PROTOCOL_VALIDATION_INTERVAL_EPOCHS or
+            config["artifact_budget_bytes"] != PROTOCOL_ARTIFACT_BUDGET_BYTES or
             config["selection_metric"] != "validation_normalized_one_step_mse" or
             config["tie_break"] != "earliest_epoch" or config["resume"] != "reject"):
         raise ValueError("embedded training settings do not match protocol v1")
+    if config["dataset_version"] != DATASET_VERSION:
+        raise ValueError("embedded dataset version does not match protocol v1")
     optimizer = config["optimizer"]
     require_fields(optimizer, {"name", "learning_rate", "betas", "epsilon", "weight_decay"},
                    "embedded optimizer")
@@ -200,6 +339,8 @@ def _validate_payload(payload: dict, root: Path | None) -> None:
     expected_status = "exploratory_dirty_source" if payload["provenance"]["working_tree_dirty"] else "clean_source"
     if payload["publication_status"] != expected_status:
         raise ValueError("publication status disagrees with source state")
+    if root is not None and validate_snapshot:
+        _validate_config_snapshot(root, payload)
 
 
 def _result_mapping(result: RunResult, output: Path) -> dict:
@@ -231,7 +372,8 @@ def write_run_manifest(output_dir: Path, config: TrainingConfig,
         raise ValueError("duplicate run result")
     if ids != [run.run_id for run in config.runs]:
         raise ValueError("results do not match the complete planned roster")
-    if output.exists() and ((output / "run-manifest.json").exists() or (output / "manifest.json").exists()):
+    if output.exists() and any((output / name).exists() for name in (
+            "run-manifest.json", "manifest.json", "training-config.toml")):
         raise ValueError("run manifest output already exists")
     output.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -243,27 +385,42 @@ def write_run_manifest(output_dir: Path, config: TrainingConfig,
         "provenance": provenance,
         "results": [_result_mapping(result, output) for result in results],
     }
-    _validate_payload(payload, output)
+    _validate_payload(payload, output, validate_snapshot=False)
     content = json_bytes(payload, indent=2)
-    outer = json_bytes({"schema_version": 1, "files": {
-        "run-manifest.json": hashlib.sha256(content).hexdigest()}}, indent=2)
+    try:
+        config_content = config.config_path.read_bytes()
+    except OSError as error:
+        raise ValueError("cannot snapshot original training config") from error
+    require_equal(hashlib.sha256(config_content).hexdigest(), config.config_sha256,
+                  "original training config hash")
     existing_paths = tuple(output.rglob("*"))
     if any(path.is_symlink() for path in existing_paths):
         raise ValueError("training output cannot contain symlinked artifacts")
     existing = sum(path.stat().st_size for path in existing_paths if path.is_file())
-    if existing + len(content) + len(outer) > config.artifact_budget_bytes:
+    if existing >= config.artifact_budget_bytes:
+        raise ValueError("training artifacts exceed configured budget")
+    files = {
+        str(path.relative_to(output)): sha256_file(path)
+        for path in sorted(existing_paths)
+        if path.is_file()
+    }
+    files["run-manifest.json"] = hashlib.sha256(content).hexdigest()
+    files["training-config.toml"] = hashlib.sha256(config_content).hexdigest()
+    outer = json_bytes({"schema_version": 1, "files": files}, indent=2)
+    if existing + len(config_content) + len(content) + len(outer) > config.artifact_budget_bytes:
         raise ValueError("training artifacts exceed configured budget")
     with tempfile.TemporaryDirectory(prefix=".run-manifest-stage-", dir=output.parent) as temp:
         stage = Path(temp)
         (stage / "run-manifest.json").write_bytes(content)
         (stage / "manifest.json").write_bytes(outer)
-        load_run_manifest(stage, validate_checkpoints=False)
-        for name in ("run-manifest.json", "manifest.json"):
+        (stage / "training-config.toml").write_bytes(config_content)
+        for name in ("training-config.toml", "run-manifest.json", "manifest.json"):
             try:
                 with (output / name).open("xb") as stream:
                     stream.write((stage / name).read_bytes())
             except FileExistsError as error:
                 raise ValueError("run manifest output already exists") from error
+    load_run_manifest(output)
     return output
 
 
@@ -276,9 +433,17 @@ def load_run_manifest(input_dir: Path, *, validate_checkpoints: bool = True) -> 
             path = directory / name
             if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_MANIFEST_BYTES:
                 raise ValueError("run manifest file is missing, unsafe or oversized")
+        paths = tuple(directory.rglob("*"))
+        if any(path.is_symlink() for path in paths):
+            raise ValueError("run manifest cannot contain symlinked artifacts")
+        actual_files = {
+            str(path.relative_to(directory)): sha256_file(path)
+            for path in sorted(paths)
+            if path.is_file() and path.relative_to(directory) != Path("manifest.json")
+        }
         outer = decode_object((directory / "manifest.json").read_text())
-        require_equal(outer, {"schema_version": 1, "files": {
-            "run-manifest.json": sha256_file(directory / "run-manifest.json")}}, "run manifest checksums")
+        require_equal(outer, {"schema_version": 1, "files": actual_files},
+                      "run manifest checksums")
         payload = decode_object((directory / "run-manifest.json").read_text())
         _validate_payload(payload, directory if validate_checkpoints else None)
         return payload

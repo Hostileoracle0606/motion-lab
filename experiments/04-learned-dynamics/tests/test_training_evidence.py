@@ -41,8 +41,11 @@ def provenance():
 
 def repair_outer_hash(output):
     manifest = json.loads((output / "manifest.json").read_text())
-    manifest["files"]["run-manifest.json"] = hashlib.sha256(
-        (output / "run-manifest.json").read_bytes()).hexdigest()
+    manifest["files"] = {
+        str(path.relative_to(output)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(output.rglob("*"))
+        if path.is_file() and path.name != "manifest.json"
+    }
     (output / "manifest.json").write_text(json.dumps(manifest))
 
 
@@ -72,9 +75,12 @@ def test_manifest_refuses_overwrite_and_budget_excess(tmp_path, training_config_
     write_run_manifest(config.output_dir, config, results, provenance())
     with pytest.raises(ValueError, match="exists"):
         write_run_manifest(config.output_dir, config, results, provenance())
-    small = replace(config, output_dir=(tmp_path / "small"), artifact_budget_bytes=1)
+    config = replace(config, output_dir=(tmp_path / "small"))
+    config.output_dir.mkdir()
+    with (config.output_dir / "oversized.bin").open("wb") as stream:
+        stream.truncate(config.artifact_budget_bytes)
     with pytest.raises(ValueError, match="budget"):
-        write_run_manifest(small.output_dir, small, results, provenance())
+        write_run_manifest(config.output_dir, config, results, provenance())
 
 
 def test_manifest_rejects_symlinked_existing_artifacts(tmp_path, training_config_writer):
@@ -86,6 +92,20 @@ def test_manifest_rejects_symlinked_existing_artifacts(tmp_path, training_config
     with pytest.raises(ValueError, match="symlink"):
         write_run_manifest(config.output_dir, config,
                            tuple(failed(run.run_id) for run in config.runs), provenance())
+
+
+def test_manifest_inventory_detects_missing_or_changed_run_artifacts(
+        tmp_path, training_config_writer):
+    config = load_training_config(training_config_writer(tmp_path / "training.toml"))
+    artifact = config.output_dir / config.runs[0].run_id / "diagnostic.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text('{"partial": true}')
+    output = write_run_manifest(
+        config.output_dir, config,
+        tuple(failed(run.run_id) for run in config.runs), provenance())
+    artifact.write_text('{"partial": false}')
+    with pytest.raises(ValueError, match="checksums"):
+        load_run_manifest(output)
 
 
 def test_loader_rejects_tampered_epoch_duplicate_json_hashes_and_schema(tmp_path, training_config_writer):
@@ -127,6 +147,20 @@ def test_loader_rejects_invalid_provenance_hash_even_with_repaired_outer_hash(tm
     (output / "run-manifest.json").write_text(json.dumps(payload))
     repair_outer_hash(output)
     with pytest.raises(ValueError, match="sha256"):
+        load_run_manifest(output)
+
+
+def test_original_config_snapshot_prevents_concealing_missing_roster_rows(
+        tmp_path, training_config_writer):
+    config = load_training_config(training_config_writer(tmp_path / "training.toml"))
+    output = write_run_manifest(config.output_dir, config,
+                                tuple(failed(run.run_id) for run in config.runs), provenance())
+    payload = json.loads((output / "run-manifest.json").read_text())
+    payload["planned_runs"] = payload["planned_runs"][:1]
+    payload["results"] = payload["results"][:1]
+    (output / "run-manifest.json").write_text(json.dumps(payload))
+    repair_outer_hash(output)
+    with pytest.raises(ValueError, match="original training config roster"):
         load_run_manifest(output)
 
 

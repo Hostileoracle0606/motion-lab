@@ -73,3 +73,20 @@ def test_paths_do_not_expand_home_or_environment(tmp_path, training_config_write
     path.write_text(text)
     with pytest.raises(ValueError, match="relative path"):
         load_training_config(path)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("batch_size = 64", "batch_size = 32"),
+        ("sampler_seed_offset = 100000", "sampler_seed_offset = 1"),
+        ("validation_interval_epochs = 1", "validation_interval_epochs = 2"),
+        ("artifact_budget_bytes = 524288000", "artifact_budget_bytes = 524288001"),
+    ],
+)
+def test_unsupported_protocol_settings_are_rejected_before_training(
+        tmp_path, training_config_writer, old, new):
+    path = training_config_writer(tmp_path / "training.toml")
+    path.write_text(path.read_text().replace(old, new))
+    with pytest.raises(ValueError, match="protocol v1"):
+        load_training_config(path)

@@ -44,6 +44,15 @@ class TrainingOutcome:
     deterministic_algorithms_requested: bool
 
 
+class TrainingFailure(RuntimeError):
+    """A failed fit plus every epoch that completed before the failure."""
+
+    def __init__(self, error: Exception, curve: tuple[dict, ...]):
+        super().__init__(str(error))
+        self.error = error
+        self.curve = curve
+
+
 def training_membership(view: TrainingView | SplitView, run: RunSpec,
                         batch_size: int) -> TrainingMembership:
     if not isinstance(view, (TrainingView, SplitView)) or not isinstance(run, RunSpec):
@@ -151,47 +160,51 @@ def _fit_model_deterministic(config: TrainingConfig, run: RunSpec, train: Traini
     permutations = tuple(torch.randperm(len(training_set.windows), generator=generator).tolist()
                          for _ in range(config.epochs))
     curve, best_value, best_state, best_epoch, updates = [], float("inf"), None, None, 0
-    for epoch, order in enumerate(permutations, start=1):
-        _synchronize(target)
-        started = time.perf_counter()
-        total, batch_sizes = 0.0, []
-        model.train()
-        for start in range(0, len(order), config.batch_size):
-            indices = order[start:start + config.batch_size]
-            selected = tuple(training_set.windows[index] for index in indices)
-            optimizer.zero_grad(set_to_none=True)
-            if run.loss == "rollout_5":
-                loss = rollout_loss(model, selected, normalizer, horizon=5)
-            else:
-                loss = one_step_loss(model, _batch(selected, run), normalizer)
-            if not torch.isfinite(loss).item():
-                raise ValueError("training loss is non-finite")
-            loss.backward()
-            if any(parameter.grad is not None and not torch.isfinite(parameter.grad).all().item()
-                   for parameter in model.parameters()):
-                raise ValueError("training gradient is non-finite")
-            optimizer.step()
-            if any(not torch.isfinite(parameter).all().item() for parameter in model.parameters()):
-                raise ValueError("model parameters became non-finite")
-            size = len(selected)
-            total += float(loss.detach().cpu()) * size
-            batch_sizes.append(size)
-            updates += 1
-        model.eval()
-        validation_mse = _validation_loss(model, validation_set, run, normalizer, config.batch_size)
-        _synchronize(target)
-        elapsed = time.perf_counter() - started
-        training_loss = total / len(training_set.windows)
-        curve.append({
-            "epoch": epoch, "training_loss": training_loss,
-            "validation_mse": validation_mse, "batch_sizes": batch_sizes,
-            "updates_this_epoch": len(batch_sizes), "optimizer_updates": updates,
-            "training_seconds": elapsed,
-        })
-        if validation_mse < best_value:
-            best_value, best_epoch = validation_mse, epoch
-            best_state = {name: tensor.detach().cpu().clone()
-                          for name, tensor in model.state_dict().items()}
+    try:
+        for epoch, order in enumerate(permutations, start=1):
+            _synchronize(target)
+            started = time.perf_counter()
+            total, batch_sizes = 0.0, []
+            model.train()
+            for start in range(0, len(order), config.batch_size):
+                indices = order[start:start + config.batch_size]
+                selected = tuple(training_set.windows[index] for index in indices)
+                optimizer.zero_grad(set_to_none=True)
+                if run.loss == "rollout_5":
+                    loss = rollout_loss(model, selected, normalizer, horizon=5)
+                else:
+                    loss = one_step_loss(model, _batch(selected, run), normalizer)
+                if not torch.isfinite(loss).item():
+                    raise ValueError("training loss is non-finite")
+                loss.backward()
+                if any(parameter.grad is not None and not torch.isfinite(parameter.grad).all().item()
+                       for parameter in model.parameters()):
+                    raise ValueError("training gradient is non-finite")
+                optimizer.step()
+                if any(not torch.isfinite(parameter).all().item() for parameter in model.parameters()):
+                    raise ValueError("model parameters became non-finite")
+                size = len(selected)
+                total += float(loss.detach().cpu()) * size
+                batch_sizes.append(size)
+                updates += 1
+            model.eval()
+            validation_mse = _validation_loss(model, validation_set, run, normalizer, config.batch_size)
+            _synchronize(target)
+            elapsed = time.perf_counter() - started
+            training_loss = total / len(training_set.windows)
+            curve.append({
+                "epoch": epoch, "training_loss": training_loss,
+                "validation_mse": validation_mse, "batch_sizes": batch_sizes,
+                "updates_this_epoch": len(batch_sizes), "optimizer_updates": updates,
+                "training_seconds": elapsed,
+            })
+            if validation_mse < best_value:
+                best_value, best_epoch = validation_mse, epoch
+                best_state = {name: tensor.detach().cpu().clone()
+                              for name, tensor in model.state_dict().items()}
+    except (ValueError, RuntimeError, NotImplementedError, ArithmeticError,
+            FloatingPointError) as error:
+        raise TrainingFailure(error, tuple(curve)) from error
     if best_state is None or best_epoch is None:
         raise ValueError("training selected no finite validation checkpoint")
     declared_epoch, declared_value = select_earliest_epoch(
@@ -212,11 +225,27 @@ def _source_state() -> tuple[str, bool]:
     return source, dirty
 
 
-def _failure(run_dir: Path, run: RunSpec, error: Exception) -> RunResult:
+def _curve_payload(config: TrainingConfig, run: RunSpec, curve: tuple[dict, ...],
+                   selected_epoch: int | None,
+                   selected_validation_mse: float | None) -> dict:
+    return {
+        "schema_version": 1, "run_id": run.run_id, "run_spec": run.mapping(),
+        "training_config_sha256": config.config_sha256,
+        "selected_epoch": selected_epoch,
+        "selected_validation_mse": selected_validation_mse,
+        "deterministic_algorithms_requested": True,
+        "epochs": list(curve),
+    }
+
+
+def _failure(run_dir: Path, config: TrainingConfig, run: RunSpec, error: Exception,
+             curve: tuple[dict, ...] = ()) -> RunResult:
     reason = f"{type(error).__name__}: {error}"
+    (run_dir / "learning-curve.json").write_bytes(json_bytes(
+        _curve_payload(config, run, curve, None, None), indent=2))
     (run_dir / "failure.json").write_bytes(json_bytes({
         "schema_version": 1, "run_id": run.run_id, "status": "failed",
-        "failure_reason": reason,
+        "failure_reason": reason, "completed_epochs": len(curve),
     }, indent=2))
     return RunResult(run.run_id, "failed", None, None, None, None, reason)
 
@@ -244,13 +273,9 @@ def _train_run(config: TrainingConfig, run: RunSpec, train: TrainingView,
         raise ValueError("run output already exists; restart requires a fresh directory") from error
     try:
         outcome = fit_model(config, run, train, validation)
-        (run_dir / "learning-curve.json").write_bytes(json_bytes({
-            "schema_version": 1, "run_id": run.run_id,
-            "selected_epoch": outcome.selected_epoch,
-            "selected_validation_mse": outcome.selected_validation_mse,
-            "deterministic_algorithms_requested": outcome.deterministic_algorithms_requested,
-            "epochs": list(outcome.curve),
-        }, indent=2))
+        (run_dir / "learning-curve.json").write_bytes(json_bytes(
+            _curve_payload(config, run, outcome.curve, outcome.selected_epoch,
+                           outcome.selected_validation_mse), indent=2))
         source, dirty = source_state
         metadata = {
             "schema_version": 1, "model_spec": asdict(run.model),
@@ -273,9 +298,11 @@ def _train_run(config: TrainingConfig, run: RunSpec, train: TrainingView,
         bundle = load_checkpoint(checkpoint)
         return RunResult(run.run_id, "success", checkpoint, bundle.bundle_sha256,
                          outcome.selected_epoch, outcome.selected_validation_mse, None)
+    except TrainingFailure as failure:
+        return _failure(run_dir, config, run, failure.error, failure.curve)
     except (ValueError, RuntimeError, NotImplementedError, ArithmeticError,
             FloatingPointError) as error:
-        return _failure(run_dir, run, error)
+        return _failure(run_dir, config, run, error)
 
 
 def train(config_path: Path, output_dir: Path, *, allow_full_study: bool = False) -> Path:
