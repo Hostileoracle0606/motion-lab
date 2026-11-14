@@ -90,6 +90,26 @@ def test_later_epoch_failure_retains_completed_curve(tmp_path, training_config_w
     assert failure["completed_epochs"] == 1
 
 
+def test_checkpoint_publication_failure_retains_completed_curve(
+        tmp_path, training_config_writer, synthetic_views, monkeypatch):
+    import learned_dynamics.training as training_module
+
+    config = load_training_config(training_config_writer(
+        tmp_path / "training.toml", seeds=(0,), epochs=1))
+    train, validation, _ = synthetic_views
+
+    def fail_checkpoint(*args, **kwargs):
+        raise ValueError("synthetic checkpoint publication failure")
+
+    monkeypatch.setattr(training_module, "save_checkpoint", fail_checkpoint)
+    result = train_run(config, config.runs[0], train, validation, config.output_dir)
+    assert result.status == "failed"
+    curve = json.loads((config.output_dir / result.run_id / "learning-curve.json").read_text())
+    assert [row["epoch"] for row in curve["epochs"]] == [1]
+    failure = json.loads((config.output_dir / result.run_id / "failure.json").read_text())
+    assert failure["completed_epochs"] == 1
+
+
 def test_diagnostic_pairs_share_starts_and_update_counts(tmp_path, committed_config_writer):
     config = load_training_config(committed_config_writer(tmp_path / "training.toml", epochs=1,
                                                           seeds=(0,)))

@@ -271,6 +271,7 @@ def _train_run(config: TrainingConfig, run: RunSpec, train: TrainingView,
         run_dir.mkdir()
     except FileExistsError as error:
         raise ValueError("run output already exists; restart requires a fresh directory") from error
+    outcome = None
     try:
         outcome = fit_model(config, run, train, validation)
         (run_dir / "learning-curve.json").write_bytes(json_bytes(
@@ -302,7 +303,8 @@ def _train_run(config: TrainingConfig, run: RunSpec, train: TrainingView,
         return _failure(run_dir, config, run, failure.error, failure.curve)
     except (ValueError, RuntimeError, NotImplementedError, ArithmeticError,
             FloatingPointError) as error:
-        return _failure(run_dir, config, run, error)
+        completed = outcome.curve if outcome is not None else ()
+        return _failure(run_dir, config, run, error, completed)
 
 
 def train(config_path: Path, output_dir: Path, *, allow_full_study: bool = False) -> Path:

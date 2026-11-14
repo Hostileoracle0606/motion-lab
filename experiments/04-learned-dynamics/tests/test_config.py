@@ -82,6 +82,7 @@ def test_paths_do_not_expand_home_or_environment(tmp_path, training_config_write
         ("sampler_seed_offset = 100000", "sampler_seed_offset = 1"),
         ("validation_interval_epochs = 1", "validation_interval_epochs = 2"),
         ("artifact_budget_bytes = 524288000", "artifact_budget_bytes = 524288001"),
+        ("learning_rate = 0.001", "learning_rate = 0.002"),
     ],
 )
 def test_unsupported_protocol_settings_are_rejected_before_training(

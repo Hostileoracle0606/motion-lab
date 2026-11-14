@@ -37,7 +37,7 @@ class OptimizerConfig:
         if self.name != "adam" or any(type(value) not in (int, float) or not math.isfinite(value)
                                       for value in values):
             raise ValueError("optimizer values must be finite Adam settings")
-        if (self.learning_rate <= 0 or self.betas != (0.9, 0.999) or
+        if (self.learning_rate != 0.001 or self.betas != (0.9, 0.999) or
                 self.epsilon != 1e-8 or self.weight_decay != 0.0):
             raise ValueError("optimizer settings do not match protocol v1")
 
