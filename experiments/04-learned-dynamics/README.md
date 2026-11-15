@@ -293,6 +293,37 @@ test evaluation. Consequently this implementation establishes evaluation and
 audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
 generalization beyond the four simulated scenarios and single collection seed.
 
+## Synchronized device benchmarking
+
+`benchmark_devices.py` measures the canonical MPS seed-0 repeat-0 checkpoint
+on both CPU and MPS using validation data only. Batch sizes 1 and 256 each use
+20 warm-ups and 100 retained samples in three alternating CPU/MPS rounds.
+End-to-end timing starts with CPU-resident physical arrays and includes
+normalization, transfer, model execution, inverse scaling and CPU output;
+model-only timing uses already normalized, device-resident float32 tensors.
+MPS is synchronized immediately before and after every timed region. CPU
+intra-op and inter-op thread counts are pinned to one.
+
+The benchmark retains every timing sample, median, linearly interpolated p95,
+batch latency, throughput, device/build identity, power state and observed
+competing load. An unsupported or failed MPS attempt is recorded as MPS failure
+and never relabeled as CPU. There is no pass/fail speed threshold: timing is a
+measurement, not the device-selection rule, a bitwise reproducibility claim,
+or evidence of real-time closed-loop control.
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/benchmark_devices.py \
+  --checkpoint /path/to/canonical32-mps-seed0-repeat0/checkpoint \
+  --dataset experiments/02-state-transition-dataset/data/dataset-v1 \
+  --output /fresh/output/benchmark \
+  --power-state "AC power; battery percentage observed" \
+  --competing-load "interactive applications observed"
+```
+
+The command is implemented and tested with deterministic fake clocks. No
+actual CPU-versus-MPS speed claim exists until the frozen checkpoint is trained
+and this command publishes its raw measurement bundle.
+
 ### Review decisions and replay boundary
 
 Only the six variants' five MPS repeat-0 runs enter final learned-test records.
