@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from learned_dynamics.evaluation import EvaluationCandidate, evaluate, summarize_records
+from learned_dynamics.evaluation import EvaluationCandidate, evaluate, grouped_summaries, summarize_records
 from learned_dynamics.evaluation_config import EvaluationConfig
 from learned_dynamics.evidence import load_evidence, write_evidence
 from learned_dynamics.types import ModelSpec
@@ -50,7 +50,7 @@ prediction_tolerance = 1e-12
         ("all", "history_common", "loss_common"),
         ("mujoco", "no_change", "constant_velocity", "analytical_rk4_0.002",
          "analytical_rk4_0.001", "analytical_rk4_0.0005"), 1e-12)
-    run_specs = tuple(RunSpec(name, ModelSpec(32, 0), loss, membership, 0, "cpu", 0)
+    run_specs = tuple(RunSpec(name, ModelSpec(32, 0), loss, membership, 0, "mps", 0)
                       for name, loss, membership in (
                           ("canonical32", "one_step", "all"),
                           ("history0", "one_step", "history_common"),
@@ -117,3 +117,61 @@ def test_audit_does_not_invoke_evaluation_or_checkpoint_inference(bundle, monkey
     monkeypatch.setattr("learned_dynamics.checkpoint.load_checkpoint",
                         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("checkpoint")))
     assert load_evidence(bundle)["record_count"]
+
+
+def test_grouped_summary_tampering_is_rejected_after_outer_hash_repair(bundle):
+    path = bundle / "evaluation.json"
+    payload = json.loads(path.read_text())
+    assert "grouped_summaries" in payload
+    payload["grouped_summaries"]["episode_id"][0]["counts"]["attempted"] += 1
+    path.write_text(json.dumps(payload))
+    repair(bundle)
+    with pytest.raises(ValueError, match="grouped"):
+        load_evidence(bundle)
+
+
+def test_failed_training_cannot_be_rewritten_as_success_even_with_repaired_derivations(bundle):
+    path = bundle / "records.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    row = next(item for item in rows if item["candidate"]["kind"] == "learned_failed"
+               and item["status"] == "failed")
+    row.update(status="success", predicted_endpoint_state=row["expected_endpoint_state"],
+               residual={"position_error_rad": 0.0, "velocity_error_rad_s": 0.0},
+               failure_step=None, failure_reason=None)
+    path.write_text("".join(json.dumps(item) + "\n" for item in rows))
+    payload_path = bundle / "evaluation.json"
+    payload = json.loads(payload_path.read_text())
+    payload["summaries"] = list(summarize_records(tuple(rows)))
+    payload["grouped_summaries"] = grouped_summaries(tuple(rows))
+    payload_path.write_text(json.dumps(payload))
+    repair(bundle)
+    with pytest.raises(ValueError, match="failed training"):
+        load_evidence(bundle)
+
+
+def test_evidence_retains_evaluator_source_and_runtime_identity(bundle):
+    payload = load_evidence(bundle)
+    assert "evaluation_provenance" in payload
+    assert len(payload["evaluation_provenance"]["source_sha"]) == 40
+    assert payload["evaluation_provenance"]["runtime"]["python"].startswith("3.12.")
+
+
+def test_episode_outcomes_are_saved_and_independently_audited(bundle):
+    path = bundle / "evaluation.json"
+    payload = json.loads(path.read_text())
+    assert "episode_outcomes" in payload
+    payload["episode_outcomes"][0]["termination_reason"] = "concealed outcome"
+    path.write_text(json.dumps(payload))
+    repair(bundle)
+    with pytest.raises(ValueError, match="episode outcomes"):
+        load_evidence(bundle)
+
+
+def test_evaluator_provenance_tampering_is_rejected_after_outer_hash_repair(bundle):
+    path = bundle / "evaluation.json"
+    payload = json.loads(path.read_text())
+    payload["evaluation_provenance"]["working_tree_dirty"] = 1
+    path.write_text(json.dumps(payload))
+    repair(bundle)
+    with pytest.raises(ValueError, match="dirty state"):
+        load_evidence(bundle)

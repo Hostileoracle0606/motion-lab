@@ -291,3 +291,31 @@ replay fixtures; #29 owns the one-time frozen 45-run study and final learned
 test evaluation. Consequently this implementation establishes evaluation and
 audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
 generalization beyond the four simulated scenarios and single collection seed.
+
+### Review decisions and replay boundary
+
+Only the six variants' five MPS repeat-0 runs enter final learned-test records.
+CPU and repeat-1 runs remain in the immutable training roster as diagnostics;
+the real final-test entry point rejects an incomplete 30-run publication matrix.
+Failed selected runs remain failed candidates, never invented successful
+predictions. Low-level synthetic fixtures may declare a smaller matrix.
+
+Evidence includes evaluator commit/dirty state, runtime and actual command,
+separately from the source that trained the checkpoints. These are declared
+provenance, not authentication of execution history. Episode outcomes and
+per-episode/scenario/controller/split counts and component metrics are saved
+and independently recomputed. Training-seed identities remain explicit; #29
+owns the full study, cross-seed variation analysis and rendered reports.
+
+Replay first checks the actual loaded bundle digest against the roster. It
+defaults to each run's recorded device. Prediction and residual differences
+must stay within the frozen absolute limits of 1e-6 rad and 1e-5 rad/s;
+identity, action, status, label and coverage fields remain exact. Explicit
+other-device replay is labeled a cross-device diagnostic, not proof of
+same-device reproduction or CPU/GPU bit equality. Failed statuses must agree;
+replay never silently substitutes devices or changes thresholds.
+
+The stewardship executor finished this bounded review repair after the
+original chat could not resume because the app's execution configuration was
+loading. The existing implementation/worktree and approved protocol were
+preserved; no full training study or real final-test evaluation was run.

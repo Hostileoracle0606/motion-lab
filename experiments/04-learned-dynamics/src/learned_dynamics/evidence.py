@@ -9,14 +9,20 @@ import tomllib
 
 from forward_dynamics.dataset import PredictionCase, load_prediction_cases
 from forward_dynamics.metrics import residual
+from forward_dynamics.rollout_evidence import episode_outcomes
 from forward_dynamics.serialization import (
     decode_object, json_bytes, require_equal, require_fields, sha256_file,
 )
 from forward_dynamics.types import DynamicsState
 from learned_dynamics.config import RunSpec
-from learned_dynamics.evaluation import BASELINE_IDS, EvaluationCandidate, summarize_records
+from learned_dynamics.evaluation import (
+    BASELINE_IDS, EvaluationCandidate, final_test_runs, grouped_summaries, summarize_records,
+)
 from learned_dynamics.evaluation_config import (
     ARTIFACT_BUDGET_BYTES, FIELDS as CONFIG_FIELDS, EvaluationConfig, HORIZONS,
+)
+from learned_dynamics.evaluation_provenance import (
+    capture_evaluation_provenance, validate_evaluation_provenance,
 )
 from learned_dynamics.training_evidence import load_run_manifest
 from learned_dynamics.types import ModelSpec, validate_hash
@@ -34,7 +40,7 @@ RECORD_FIELDS = {
 EVALUATION_FIELDS = {
     "schema_version", "config_sha256", "dataset_version", "dataset_dir",
     "dataset_files", "training_roster_dir", "training_roster_sha256", "case_ids",
-    "record_count", "summaries",
+    "record_count", "summaries", "grouped_summaries", "episode_outcomes", "evaluation_provenance",
 }
 
 
@@ -68,6 +74,9 @@ def write_evidence(output_dir: Path, config: EvaluationConfig, roster: dict,
         "training_roster_sha256": hashlib.sha256(roster_bytes).hexdigest(),
         "case_ids": [_case_id(case) for case in cases],
         "record_count": len(records), "summaries": list(summarize_records(records)),
+        "grouped_summaries": grouped_summaries(records),
+        "episode_outcomes": list(episode_outcomes(cases)),
+        "evaluation_provenance": capture_evaluation_provenance(),
     }
     encoded_records = b"".join(json_bytes(row) for row in records)
     total = len(config_bytes) + len(roster_bytes) + len(encoded_records) + len(json_bytes(payload, indent=2))
@@ -161,6 +170,8 @@ def _candidate_identity(predictor_id: str, membership: str, planned: dict,
     if predictor_id not in planned or planned[predictor_id].membership != membership:
         raise ValueError("learned candidate is absent from declared membership roster")
     run, result = planned[predictor_id], results[predictor_id]
+    if run.device != "mps" or run.repeat != 0:
+        raise ValueError("diagnostic training run cannot enter final-test evidence")
     if result["status"] == "failed":
         return EvaluationCandidate.failed(
             predictor_id=predictor_id, predictor=object(), run_spec=run.mapping(),
@@ -211,6 +222,10 @@ def _audit_record(row: dict, case: PredictionCase, episode: tuple[PredictionCase
     expected_state = asdict(window[-1].expected_next_state)
     require_equal(row["applied_actions_nm"], actions, "recorded actions")
     require_equal(row["expected_endpoint_state"], expected_state, "expected endpoint")
+    if identity["kind"] == "learned_failed":
+        if (row["status"] != "failed" or row["failure_step"] != 1 or
+                row["failure_reason"] != "RuntimeError: training failed: " + identity["training_failure_reason"]):
+            raise ValueError("failed training cannot produce successful or altered prediction evidence")
     if row["status"] == "success":
         if any(row[name] is not None for name in ("unavailable_reason", "failure_step", "failure_reason")):
             raise ValueError("successful record contains failure fields")
@@ -248,6 +263,7 @@ def load_evidence(input_dir: Path) -> dict:
         require_fields(payload, EVALUATION_FIELDS, "evaluation evidence")
         if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
             raise ValueError("unsupported evaluation evidence schema")
+        validate_evaluation_provenance(payload["evaluation_provenance"])
         require_equal(payload["config_sha256"], sha256_file(directory / "evaluation-config.toml"),
                       "evaluation config identity")
         _audit_config_snapshot(directory / "evaluation-config.toml", payload)
@@ -256,6 +272,7 @@ def load_evidence(input_dir: Path) -> dict:
                       "training roster identity")
         roster = decode_object(roster_bytes.decode())
         planned, results = _roster_identities(roster)
+        publication = final_test_runs(roster)
         roster_dir = (directory / payload["training_roster_dir"]).resolve()
         live_roster = load_run_manifest(roster_dir, validate_checkpoints=False)
         require_equal({key: live_roster[key] for key in roster}, roster,
@@ -279,13 +296,14 @@ def load_evidence(input_dir: Path) -> dict:
             sorted((c.split, c.episode_id, c.step_index) for c in all_cases if c.split == "test"),
             "complete final-test membership")
         cases, episodes = tuple(selected), _episodes(tuple(selected))
+        require_equal(payload["episode_outcomes"], list(episode_outcomes(cases)), "episode outcomes")
         positions = {(case.split, case.episode_id, case.step_index): index
                      for episode in episodes.values() for index, case in enumerate(episode)}
         rows = _load_records(directory / "records.jsonl")
         expected_keys, actual_keys = set(), set()
         for membership in ("all", "history_common", "loss_common"):
             ids = (*BASELINE_IDS, *(run_id for run_id, run in planned.items()
-                                    if run.membership == membership))
+                                    if run_id in publication and run.membership == membership))
             for predictor_id in ids:
                 for case in cases:
                     for horizon in HORIZONS:
@@ -305,6 +323,8 @@ def load_evidence(input_dir: Path) -> dict:
         require_equal(sorted(actual_keys), sorted(expected_keys), "complete evaluation membership")
         require_equal(payload["record_count"], len(rows), "evaluation record count")
         require_equal(payload["summaries"], list(summarize_records(rows)), "evaluation summaries")
+        require_equal(payload["grouped_summaries"], grouped_summaries(rows),
+                      "evaluation grouped summaries")
         return payload | {"records": rows, "roster": roster}
     except (OSError, UnicodeError, KeyError, TypeError, ValueError) as error:
         if isinstance(error, ValueError):

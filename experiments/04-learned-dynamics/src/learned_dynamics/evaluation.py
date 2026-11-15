@@ -9,7 +9,7 @@ from forward_dynamics.dataset import PredictionCase
 from forward_dynamics.metrics import StateResidual, residual, summarize_errors
 from forward_dynamics.rollouts import _validated_episodes
 from forward_dynamics.types import DynamicsState, validate_state
-from learned_dynamics.config import RunSpec
+from learned_dynamics.config import PROTOCOL_VARIANTS, RunSpec
 from learned_dynamics.types import ModelSpec, validate_hash
 
 
@@ -202,14 +202,32 @@ def _attempt(candidate: EvaluationCandidate, episode: tuple[PredictionCase, ...]
     }
 
 
-def summarize_records(records: tuple[dict, ...]) -> tuple[dict, ...]:
+GROUP_FIELDS = ("episode_id", "scenario_id", "controller_id", "split")
+
+
+def final_test_runs(roster: dict, *, require_complete: bool = False) -> dict[str, dict]:
+    """Retain the predeclared publication runs, never CPU/repeat diagnostics."""
+    selected = {row["run_id"]: row["run_spec"] for row in roster["planned_runs"]
+                if row["run_spec"]["device"] == "mps" and row["run_spec"]["repeat"] == 0}
+    if require_complete:
+        expected = {f"{variant}-mps-seed{seed}-repeat0"
+                    for variant in PROTOCOL_VARIANTS for seed in range(5)}
+        if set(selected) != expected:
+            raise ValueError("complete final-test roster requires all six variants and five MPS seeds")
+    return selected
+
+
+def summarize_records(records: tuple[dict, ...], *, group_by: str | None = None) -> tuple[dict, ...]:
     if not records:
         raise ValueError("evaluation records cannot be empty")
+    if group_by is not None and group_by not in GROUP_FIELDS:
+        raise ValueError("unsupported evaluation summary grouping")
     grouped = defaultdict(list)
     for row in records:
-        grouped[(row["predictor_id"], row["membership"], row["horizon_steps"])].append(row)
+        group_value = row[group_by] if group_by else "all"
+        grouped[(row["predictor_id"], row["membership"], row["horizon_steps"], group_value)].append(row)
     result = []
-    for (predictor_id, membership, horizon), rows in sorted(grouped.items()):
+    for (predictor_id, membership, horizon, group_value), rows in sorted(grouped.items()):
         successes = [row for row in rows if row["status"] == "success"]
         failures = [row for row in rows if row["status"] == "failed"]
         unavailable = [row for row in rows if row["status"] == "unavailable"]
@@ -217,6 +235,8 @@ def summarize_records(records: tuple[dict, ...]) -> tuple[dict, ...]:
         result.append({
             "predictor_id": predictor_id, "membership": membership,
             "horizon_steps": horizon,
+            "group_by": group_by, "group_value": group_value,
+            "training_seed": (rows[0]["candidate"]["run_spec"] or {}).get("seed"),
             "units": {"position": "rad", "velocity": "rad/s", "horizon": "s"},
             "counts": {"attempted": len(rows), "eligible": len(successes) + len(failures),
                        "success": len(successes), "failed": len(failures),
@@ -224,6 +244,10 @@ def summarize_records(records: tuple[dict, ...]) -> tuple[dict, ...]:
             "success_metrics": asdict(summarize_errors(errors)) if errors else None,
         })
     return tuple(result)
+
+
+def grouped_summaries(records: tuple[dict, ...]) -> dict:
+    return {field: list(summarize_records(records, group_by=field)) for field in GROUP_FIELDS}
 
 
 def run_evaluation(config_path: Path, roster_path: Path, output_dir: Path) -> Path:
@@ -245,6 +269,7 @@ def run_evaluation(config_path: Path, roster_path: Path, output_dir: Path) -> Pa
     full_roster = load_run_manifest(config.training_roster_dir)
     roster = {key: full_roster[key] for key in (
         "schema_version", "training_config_sha256", "planned_runs", "results")}
+    publication = final_test_runs(roster, require_complete=True)
     views = load_views(config.dataset_dir, config.dataset_version)
     cases = views.test.cases
     stage3 = load_stage3_config(DEFAULT_CONFIG)
@@ -255,6 +280,8 @@ def run_evaluation(config_path: Path, roster_path: Path, output_dir: Path) -> Pa
         candidates = [EvaluationCandidate.baseline(name, baseline_predictors[name])
                       for name in config.baseline_ids]
         for result in roster["results"]:
+            if result["run_id"] not in publication:
+                continue
             run_spec = planned[result["run_id"]]
             if run_spec["membership"] != membership:
                 continue

@@ -1,4 +1,5 @@
 from dataclasses import replace
+from types import SimpleNamespace
 
 from forward_dynamics.types import DynamicsState
 from learned_dynamics.evaluation import EvaluationCandidate, evaluate, summarize_records
@@ -91,3 +92,64 @@ def test_loss_common_and_terminal_boundaries_control_membership(synthetic_views)
     assert sum(row["status"] == "success" and row["horizon_steps"] == 1 for row in rows) == 2
     assert sum(row["status"] == "success" and row["horizon_steps"] == 5 for row in rows) == 2
     assert len(rows) == 12
+
+
+def test_final_test_orchestration_excludes_cpu_and_repeat_diagnostics(
+        tmp_path, synthetic_views, monkeypatch):
+    from learned_dynamics.config import RunSpec
+    from learned_dynamics.evaluation import BASELINE_IDS, run_evaluation
+    from learned_dynamics.types import ModelSpec
+
+    variants = (("canonical32", 32, 0, "one_step", "all"),
+                ("capacity16", 16, 0, "one_step", "all"),
+                ("history0", 32, 0, "one_step", "history_common"),
+                ("history1", 32, 1, "one_step", "history_common"),
+                ("loss1", 32, 0, "one_step", "loss_common"),
+                ("loss5", 32, 0, "rollout_5", "loss_common"))
+    runs = tuple(RunSpec(name, ModelSpec(width, history), loss, membership, seed, "mps", 0)
+                 for name, width, history, loss, membership in variants for seed in range(5))
+    runs += tuple(RunSpec("canonical32", ModelSpec(), "one_step", "all", 0, device, repeat)
+                  for device, repeat in (("mps", 1), ("cpu", 0)))
+    roster = {"schema_version": 1, "training_config_sha256": "a" * 64,
+              "planned_runs": [{"run_id": run.run_id, "run_spec": run.mapping()} for run in runs],
+              "results": [{"run_id": run.run_id, "status": "failed",
+                           "failure_reason": "synthetic failed fit"} for run in runs]}
+    config = SimpleNamespace(training_roster_dir=tmp_path / "training",
+        output_dir=tmp_path / "output", dataset_dir=tmp_path / "dataset",
+        dataset_version="experiment-02-transition-v1", baseline_ids=BASELINE_IDS,
+        memberships=("all", "history_common", "loss_common"), horizons=(1,))
+    captured = []
+    monkeypatch.setattr("learned_dynamics.evaluation_config.load_evaluation_config", lambda path: config)
+    monkeypatch.setattr("learned_dynamics.training_evidence.load_run_manifest", lambda path: roster)
+    monkeypatch.setattr("learned_dynamics.data.load_views",
+                        lambda *args: SimpleNamespace(test=SimpleNamespace(cases=synthetic_views[2].cases[:3])))
+    monkeypatch.setattr("forward_dynamics.adapters.make_predictor", lambda *args: BiasedPredictor())
+    monkeypatch.setattr("learned_dynamics.evidence.write_evidence",
+                        lambda output, config, roster, rows, cases: captured.extend(rows) or output)
+    run_evaluation(tmp_path / "config.toml", config.training_roster_dir, config.output_dir)
+    learned_ids = {row["predictor_id"] for row in captured if row["candidate"]["kind"] != "baseline"}
+    assert learned_ids == {f"{name}-mps-seed{seed}-repeat0"
+                          for name in ("canonical32", "capacity16", "history0", "history1", "loss1", "loss5")
+                          for seed in range(5)}
+
+
+def test_grouped_metrics_keep_episode_denominators_and_training_seed(synthetic_views):
+    first = synthetic_views[0].cases[:2]
+    second = tuple(replace(case, episode_id="second-episode", scenario_id="second-scenario")
+                   for case in first)
+    candidate = learned(BiasedPredictor())
+    rows = evaluate(first + second, (candidate,), (1,), "all")
+    summaries = summarize_records(rows, group_by="episode_id")
+    by_episode = {row["group_value"]: row for row in summaries}
+    assert set(by_episode) == {"train-episode", "second-episode"}
+    assert all(row["counts"] == {"attempted": 2, "eligible": 2,
+               "success": 2, "failed": 0, "unavailable": 0} for row in summaries)
+    assert all(row["training_seed"] == 0 for row in summaries)
+
+
+def test_real_final_test_requires_the_complete_predeclared_seed_matrix():
+    import pytest
+    from learned_dynamics.evaluation import final_test_runs
+
+    with pytest.raises(ValueError, match="all six variants and five MPS seeds"):
+        final_test_runs({"planned_runs": []}, require_complete=True)
