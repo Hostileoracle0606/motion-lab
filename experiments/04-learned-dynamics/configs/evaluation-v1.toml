@@ -1,0 +1,10 @@
+schema_version = 1
+dataset_dir = "../../02-state-transition-dataset/data/dataset-v1"
+dataset_version = "experiment-02-transition-v1"
+training_roster_dir = "../results/training-v1"
+output_dir = "../results/evaluation-v1"
+artifact_budget_bytes = 524288000
+horizons = [1, 5, 10, 25, 50, 100]
+memberships = ["all", "history_common", "loss_common"]
+baseline_ids = ["mujoco", "no_change", "constant_velocity", "analytical_rk4_0.002", "analytical_rk4_0.001", "analytical_rk4_0.0005"]
+prediction_tolerance = 1e-12

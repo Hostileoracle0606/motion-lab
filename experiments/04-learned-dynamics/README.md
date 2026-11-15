@@ -1,7 +1,8 @@
 # Experiment 04 — Learned dynamics
 
-Status: data/preprocessing APIs (#25) and the residual predictor (#26) are implemented. Model training,
-CPU/MPS comparisons and prediction results remain planned.
+Status: data/preprocessing APIs (#25), residual prediction (#26), training orchestration (#27),
+and the independent evaluation/evidence machinery (#28) are implemented. The frozen 45-run study,
+CPU/MPS benchmarking, and final learned prediction results remain planned in #29.
 
 The [approved design](../../docs/superpowers/specs/2026-11-10-learned-dynamics-design.md)
 and [implementation plan](../../docs/superpowers/plans/2026-11-11-learned-dynamics.md)
@@ -241,3 +242,90 @@ The short CPU and MPS checks establish executable training, deterministic
 selection mechanics, and checkpoint publication. They do not establish model
 accuracy, device speed, training-repeatability tolerances, or final study
 results. Those claims require the frozen study and independent reproduction.
+
+## Independent learned evaluation evidence
+
+`configs/evaluation-v1.toml` freezes the six Stage 3 baselines, horizons
+1/5/10/25/50/100, and the `all`, `history_common`, and `loss_common`
+memberships. `evaluate(...)` recursively feeds each predicted state into the
+next step while retaining the original recorded action sequence. The history
+model shifts predicted state history and recorded action history together;
+future observed states are endpoints for scoring only. Every declared start is
+retained as success, failed prediction, or unavailable. A failed training run
+therefore remains in eligible denominators instead of disappearing from the
+roster.
+
+Stage 4 owns this new schema. Stage 3 full and legacy evidence formats and
+loaders are unchanged. Baselines are constructed once per evaluation run and
+have null training identities. Learned records bind the complete run
+specification, training-config hash, selected epoch/validation metric,
+checkpoint-relative path, and checkpoint manifest hash.
+
+`load_evidence(input_dir)` is the report-facing boundary. It verifies the
+outer inventory, exact config and roster snapshots, immutable dataset bytes,
+the complete test membership, every episode-local action and expected
+endpoint, success/failure/unavailable denominators, physical-unit residuals,
+and all saved summaries. It performs no fitting, model inference, checkpoint
+materialization, or simulator calls. Repairing outer hashes after changing a
+seed, action, endpoint, checkpoint/selection identity, residual, count, or
+aggregate still fails the semantic audit.
+
+Checkpoint provenance needs a stronger, deliberately separate operation:
+`replay_checkpoints(input_dir, device)` reloads the independently validated
+training roster and each successful checkpoint, regenerates its recursive
+records, and checks them against the saved learned predictions using the
+component tolerances and exact metadata rules documented below.
+Keeping replay separate lets report generation remain inference-free while
+still providing executable proof that the recorded predictions came from the
+declared weights.
+
+The CLIs are intentionally gated in this task:
+
+```bash
+uv run python experiments/04-learned-dynamics/scripts/run_evaluation.py --help
+uv run python experiments/04-learned-dynamics/scripts/replay_checkpoints.py --help
+```
+
+The first command requires `--allow-final-test` before executing the real test
+protocol. Issue #28 exercises only short synthetic records and checkpoint
+replay fixtures; #29 owns the one-time frozen 45-run study and final learned
+test evaluation. Consequently this implementation establishes evaluation and
+audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
+generalization beyond the four simulated scenarios and single collection seed.
+
+### Review decisions and replay boundary
+
+Only the six variants' five MPS repeat-0 runs enter final learned-test records.
+CPU and repeat-1 runs remain in the immutable training roster as diagnostics;
+the real final-test entry point rejects an incomplete 30-run publication matrix.
+Failed selected runs remain failed candidates, never invented successful
+predictions. Low-level synthetic fixtures may declare a smaller matrix.
+
+Evidence includes evaluator commit/dirty state, runtime and actual command,
+separately from the source that trained the checkpoints. These are declared
+provenance, not authentication of execution history. Episode outcomes and
+per-episode/scenario/controller/split counts and component metrics are saved
+and independently recomputed. Training-seed identities remain explicit; #29
+owns the full study, cross-seed variation analysis and rendered reports.
+
+Replay first checks the actual loaded bundle digest against the roster. It
+defaults to each run's recorded device. Prediction and residual differences
+must stay within the frozen absolute limits of 1e-6 rad and 1e-5 rad/s;
+identity, action, status, label and coverage fields remain exact. Explicit
+other-device replay is labeled a cross-device diagnostic, not proof of
+same-device reproduction or CPU/GPU bit equality. Failed statuses must agree;
+replay never silently substitutes devices or changes thresholds.
+
+The final standards/spec review also closed two input-boundary gaps. Outputs
+cannot be ancestors or descendants of either immutable input directory. Saved
+evidence retains a relative pointer to the original evaluation config, verifies
+its bytes against the snapshot, and binds both input locations and the output
+to that config. The dataset manifest and training partition hashes must also
+match the validated training roster provenance. Auditing therefore requires
+the original config and input artifacts to remain available; moving a bundle
+alone is not supported. These consistency checks are not signed provenance.
+
+The stewardship executor finished this bounded review repair after the
+original chat could not resume because the app's execution configuration was
+loading. The existing implementation/worktree and approved protocol were
+preserved; no full training study or real final-test evaluation was run.
