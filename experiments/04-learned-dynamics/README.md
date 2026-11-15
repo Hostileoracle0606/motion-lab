@@ -273,7 +273,8 @@ aggregate still fails the semantic audit.
 Checkpoint provenance needs a stronger, deliberately separate operation:
 `replay_checkpoints(input_dir, device)` reloads the independently validated
 training roster and each successful checkpoint, regenerates its recursive
-records, and requires exact agreement with the saved learned predictions.
+records, and checks them against the saved learned predictions using the
+component tolerances and exact metadata rules documented below.
 Keeping replay separate lets report generation remain inference-free while
 still providing executable proof that the recorded predictions came from the
 declared weights.
@@ -314,6 +315,15 @@ identity, action, status, label and coverage fields remain exact. Explicit
 other-device replay is labeled a cross-device diagnostic, not proof of
 same-device reproduction or CPU/GPU bit equality. Failed statuses must agree;
 replay never silently substitutes devices or changes thresholds.
+
+The final standards/spec review also closed two input-boundary gaps. Outputs
+cannot be ancestors or descendants of either immutable input directory. Saved
+evidence retains a relative pointer to the original evaluation config, verifies
+its bytes against the snapshot, and binds both input locations and the output
+to that config. The dataset manifest and training partition hashes must also
+match the validated training roster provenance. Auditing therefore requires
+the original config and input artifacts to remain available; moving a bundle
+alone is not supported. These consistency checks are not signed provenance.
 
 The stewardship executor finished this bounded review repair after the
 original chat could not resume because the app's execution configuration was

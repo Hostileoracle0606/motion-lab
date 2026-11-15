@@ -20,6 +20,7 @@ from learned_dynamics.evaluation import (
 )
 from learned_dynamics.evaluation_config import (
     ARTIFACT_BUDGET_BYTES, FIELDS as CONFIG_FIELDS, EvaluationConfig, HORIZONS,
+    load_evaluation_config,
 )
 from learned_dynamics.evaluation_provenance import (
     capture_evaluation_provenance, validate_evaluation_provenance,
@@ -38,7 +39,7 @@ RECORD_FIELDS = {
     "residual", "failure_step", "failure_reason",
 }
 EVALUATION_FIELDS = {
-    "schema_version", "config_sha256", "dataset_version", "dataset_dir",
+    "schema_version", "config_sha256", "evaluation_config_path", "dataset_version", "dataset_dir",
     "dataset_files", "training_roster_dir", "training_roster_sha256", "case_ids",
     "record_count", "summaries", "grouped_summaries", "episode_outcomes", "evaluation_provenance",
 }
@@ -67,6 +68,7 @@ def write_evidence(output_dir: Path, config: EvaluationConfig, roster: dict,
     dataset_files = {name: sha256_file(config.dataset_dir / name) for name in DATA_FILES}
     payload = {
         "schema_version": 1, "config_sha256": config.config_sha256,
+        "evaluation_config_path": os.path.relpath(config.config_path, output),
         "dataset_version": config.dataset_version,
         "dataset_dir": os.path.relpath(config.dataset_dir, output),
         "dataset_files": dataset_files,
@@ -129,6 +131,19 @@ def _audit_config_snapshot(path: Path, payload: dict) -> None:
         if (not isinstance(value, str) or not value or value.startswith("~") or
                 "$" in value or Path(value).is_absolute()):
             raise ValueError("evaluation config paths must remain literal and relative")
+    origin = payload["evaluation_config_path"]
+    if (not isinstance(origin, str) or not origin or origin.startswith("~") or
+            "$" in origin or Path(origin).is_absolute()):
+        raise ValueError("evaluation config origin must be literal and relative")
+    config = load_evaluation_config(path.parent / origin)
+    require_equal(config.config_sha256, payload["config_sha256"], "original evaluation config")
+    for name in ("dataset_dir", "training_roster_dir"):
+        value = payload[name]
+        if (not isinstance(value, str) or not value or Path(value).is_absolute() or
+                (path.parent / value).resolve() != getattr(config, name)):
+            raise ValueError("configured evaluation input location does not match evidence")
+    if path.parent.resolve() != config.output_dir:
+        raise ValueError("configured evaluation output location does not match evidence")
 
 
 def _roster_identities(roster: dict) -> tuple[dict, dict]:
@@ -280,6 +295,10 @@ def load_evidence(input_dir: Path) -> dict:
         dataset = (directory / payload["dataset_dir"]).resolve()
         require_equal(payload["dataset_files"], {name: sha256_file(dataset / name) for name in DATA_FILES},
                       "immutable dataset files")
+        for provenance_field, filename in (("dataset_manifest_sha256", "manifest.json"),
+                                            ("train_sha256", "train.jsonl")):
+            require_equal(live_roster["provenance"][provenance_field],
+                          payload["dataset_files"][filename], "training dataset provenance")
         all_cases = load_prediction_cases(dataset, payload["dataset_version"])
         lookup = {(case.split, case.episode_id, case.step_index): case for case in all_cases}
         selected = []

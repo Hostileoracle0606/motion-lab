@@ -76,7 +76,9 @@ prediction_tolerance = 1e-12
     monkeypatch.setattr("learned_dynamics.evidence.load_prediction_cases",
                         lambda directory, version: cases)
     monkeypatch.setattr("learned_dynamics.evidence.load_run_manifest",
-                        lambda directory, validate_checkpoints=False: roster)
+        lambda directory, validate_checkpoints=False: roster | {"provenance": {
+            "dataset_manifest_sha256": hashlib.sha256((dataset / "manifest.json").read_bytes()).hexdigest(),
+            "train_sha256": hashlib.sha256((dataset / "train.jsonl").read_bytes()).hexdigest()}})
     return output
 
 
@@ -174,4 +176,36 @@ def test_evaluator_provenance_tampering_is_rejected_after_outer_hash_repair(bund
     path.write_text(json.dumps(payload))
     repair(bundle)
     with pytest.raises(ValueError, match="dirty state"):
+        load_evidence(bundle)
+
+
+@pytest.mark.parametrize("field", ["dataset_dir", "training_roster_dir"])
+def test_audit_binds_input_locations_to_original_evaluation_config(bundle, field):
+    import shutil
+
+    path = bundle / "evaluation.json"
+    payload = json.loads(path.read_text())
+    alternate = bundle.parent / "alternate"
+    if field == "dataset_dir":
+        shutil.copytree(bundle.parent / "dataset", alternate)
+    payload[field] = "../alternate"
+    path.write_text(json.dumps(payload))
+    repair(bundle)
+    with pytest.raises(ValueError, match="configured.*input"):
+        load_evidence(bundle)
+
+
+def test_audit_binds_evaluation_data_to_training_provenance(bundle, monkeypatch):
+    roster = load_evidence(bundle)["roster"]
+    monkeypatch.setattr("learned_dynamics.evidence.load_run_manifest",
+        lambda directory, validate_checkpoints=False: roster | {"provenance": {
+            "dataset_manifest_sha256": "f" * 64, "train_sha256": "e" * 64}})
+    with pytest.raises(ValueError, match="training dataset"):
+        load_evidence(bundle)
+
+
+def test_audit_requires_original_config_bytes_to_match_snapshot(bundle):
+    original = bundle.parent / "evaluation.toml"
+    original.write_text(original.read_text() + "\n# edited after evaluation\n")
+    with pytest.raises(ValueError, match="original evaluation config"):
         load_evidence(bundle)

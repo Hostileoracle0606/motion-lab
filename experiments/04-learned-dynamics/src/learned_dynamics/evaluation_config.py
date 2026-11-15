@@ -58,6 +58,10 @@ class EvaluationConfig:
             raise ValueError("prediction tolerance does not match protocol")
         if len({self.dataset_dir, self.training_roster_dir, self.output_dir}) != 3:
             raise ValueError("evaluation inputs and output must be distinct")
+        output = self.output_dir.resolve()
+        for source in (self.dataset_dir.resolve(), self.training_roster_dir.resolve()):
+            if output.is_relative_to(source) or source.is_relative_to(output):
+                raise ValueError("evaluation output must not overlap immutable inputs")
 
 
 def load_evaluation_config(path: Path) -> EvaluationConfig:

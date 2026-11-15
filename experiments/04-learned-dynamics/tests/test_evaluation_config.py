@@ -45,3 +45,11 @@ def test_rejects_protocol_drift_and_unsafe_paths(tmp_path, old, new):
     path = write_config(tmp_path / "evaluation.toml", **{old: new})
     with pytest.raises(ValueError):
         load_evaluation_config(path)
+
+
+@pytest.mark.parametrize("output", ["dataset/nested", "training-results/nested", "."])
+def test_rejects_output_overlapping_immutable_inputs(tmp_path, output):
+    path = write_config(tmp_path / "evaluation.toml", **{
+        'output_dir = "evaluation-results"': f'output_dir = "{output}"'})
+    with pytest.raises(ValueError, match="overlap"):
+        load_evaluation_config(path)
