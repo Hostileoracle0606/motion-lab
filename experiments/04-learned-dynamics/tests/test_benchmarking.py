@@ -2,11 +2,12 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import hashlib
 
 import pytest
 
 from learned_dynamics.benchmarking import (
-    _measure_calls, benchmark_inference, summarize_timings,
+    _measure_calls, benchmark_inference, load_benchmark_evidence, summarize_timings,
 )
 
 
@@ -61,6 +62,8 @@ def test_benchmark_keeps_mps_failure_identified_and_cpu_results(
         },)
 
     monkeypatch.setattr("learned_dynamics.benchmarking._benchmark_device", fake_device)
+    monkeypatch.setenv("MOTION_LAB_POWER_STATE", "AC")
+    monkeypatch.setenv("MOTION_LAB_COMPETING_LOAD", "none")
     path = benchmark_inference(checkpoint, synthetic_views[1], output)
     payload = json.loads(path.read_text())
     successes = [row for row in payload["results"] if row["status"] == "success"]
@@ -72,6 +75,18 @@ def test_benchmark_keeps_mps_failure_identified_and_cpu_results(
                for row in failures)
     assert payload["round_device_order"] == [["cpu", "mps"], ["mps", "cpu"],
                                                ["cpu", "mps"]]
+
+
+def test_benchmark_refuses_unreported_power_or_competing_load(
+        tmp_path, synthetic_views, monkeypatch):
+    checkpoint = tmp_path / "checkpoint"
+    checkpoint.mkdir()
+    (checkpoint / "manifest.json").write_text("checkpoint\n")
+    monkeypatch.delenv("MOTION_LAB_POWER_STATE", raising=False)
+    monkeypatch.delenv("MOTION_LAB_COMPETING_LOAD", raising=False)
+    monkeypatch.setattr("learned_dynamics.benchmarking._benchmark_device", lambda *args: ())
+    with pytest.raises(ValueError, match="power state"):
+        benchmark_inference(checkpoint, synthetic_views[1], tmp_path / "benchmark")
 
 
 def test_device_workloads_include_both_timing_boundaries(tmp_path, monkeypatch):
@@ -126,3 +141,61 @@ def test_benchmark_cli_documents_required_evidence_inputs():
     for option in ("--checkpoint", "--dataset", "--output", "--power-state",
                    "--competing-load"):
         assert option in result.stdout
+
+
+def write_benchmark_bundle(path):
+    path.mkdir()
+    results = []
+    orders = [["cpu", "mps"], ["mps", "cpu"], ["cpu", "mps"]]
+    for round_index, order in enumerate(orders):
+        for device in order:
+            for mode in ("end_to_end", "model_only"):
+                for batch in (1, 256):
+                    samples = [0.001] * 100
+                    results.append({
+                        "status": "success", "device": device, "round": round_index,
+                        "mode": mode, "batch_size": batch, "dtype": "float32",
+                        "warmup_count": 20, "samples_s": samples,
+                        "summary": {"sample_count": 100, "median_s": 0.001,
+                                    "p95_s": 0.001, "batch_latency_s": 0.001,
+                                    "items_per_s": batch / 0.001},
+                    })
+    payload = {
+        "schema_version": 1, "source_sha": "a" * 40,
+        "checkpoint_manifest_sha256": "b" * 64,
+        "validation": {"dataset_version": "experiment-02-transition-v1",
+                       "manifest_sha256": "c" * 64, "train_sha256": "d" * 64,
+                       "row_count": 800},
+        "protocol": {"batch_sizes": [1, 256], "warmup_count": 20,
+                     "measured_count": 100, "round_device_order": orders,
+                     "modes": ["end_to_end", "model_only"]},
+        "round_device_order": orders,
+        "environment": {"os": "Darwin", "os_release": "test", "architecture": "arm64",
+                        "processor": "test", "python": "3.12", "torch": "test",
+                        "numpy": "test", "cpu_intraop_threads": 1,
+                        "cpu_interop_threads": 1, "power_state": "AC",
+                        "competing_load": "none"},
+        "results": results,
+    }
+    (path / "benchmark.json").write_text(json.dumps(payload))
+    digest = hashlib.sha256((path / "benchmark.json").read_bytes()).hexdigest()
+    (path / "manifest.json").write_text(json.dumps(
+        {"schema_version": 1, "files": {"benchmark.json": digest}}))
+    return payload
+
+
+@pytest.mark.parametrize("target", ["summary", "checkpoint"])
+def test_benchmark_audit_rejects_semantic_tampering_after_hash_repair(tmp_path, target):
+    bundle = tmp_path / "benchmark"
+    payload = write_benchmark_bundle(bundle)
+    assert load_benchmark_evidence(bundle)["results"]
+    if target == "summary":
+        payload["results"][0]["summary"]["median_s"] = 0.5
+    else:
+        payload["checkpoint_manifest_sha256"] = "not-a-hash"
+    (bundle / "benchmark.json").write_text(json.dumps(payload))
+    digest = hashlib.sha256((bundle / "benchmark.json").read_bytes()).hexdigest()
+    (bundle / "manifest.json").write_text(json.dumps(
+        {"schema_version": 1, "files": {"benchmark.json": digest}}))
+    with pytest.raises(ValueError):
+        load_benchmark_evidence(bundle)

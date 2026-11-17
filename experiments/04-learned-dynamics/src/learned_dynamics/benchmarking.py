@@ -4,23 +4,30 @@ import math
 import os
 from pathlib import Path
 import platform
+import re
 import subprocess
 import time
 
 import numpy as np
 import torch
 
-from forward_dynamics.serialization import json_bytes, sha256_file
+from forward_dynamics.serialization import (
+    decode_object, json_bytes, require_equal, require_fields, sha256_file,
+)
 from learned_dynamics.checkpoint import load_checkpoint
 from learned_dynamics.normalization import transform_inputs
 from learned_dynamics.predictor import LearnedPredictor, SUPPORTED_CONTEXT
-from learned_dynamics.types import SplitView
+from learned_dynamics.types import DATASET_VERSION, SplitView, validate_hash
 
 
 WARMUPS = 20
 MEASURED = 100
 BATCH_SIZES = (1, 256)
 ROUND_DEVICE_ORDER = (("cpu", "mps"), ("mps", "cpu"), ("cpu", "mps"))
+BENCHMARK_FIELDS = {
+    "schema_version", "source_sha", "checkpoint_manifest_sha256", "validation",
+    "protocol", "round_device_order", "environment", "results",
+}
 
 
 def summarize_timings(samples: tuple[float, ...]) -> dict:
@@ -137,7 +144,7 @@ def _environment() -> dict:
     }
 
 
-def _pin_cpu_threads() -> None:
+def pin_cpu_threads() -> None:
     torch.set_num_threads(1)
     if torch.get_num_interop_threads() != 1:
         try:
@@ -154,10 +161,12 @@ def benchmark_inference(checkpoint_dir: Path, validation: SplitView, output_dir:
         raise ValueError("benchmark output must be a fresh directory")
     if not isinstance(validation, SplitView) or validation.split != "validation":
         raise ValueError("inference benchmark requires the validation split")
+    if not os.environ.get("MOTION_LAB_POWER_STATE") or not os.environ.get("MOTION_LAB_COMPETING_LOAD"):
+        raise ValueError("power state and competing load must be reported before benchmarking")
     manifest = checkpoint / "manifest.json"
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError("checkpoint manifest is missing or unsafe")
-    _pin_cpu_threads()
+    pin_cpu_threads()
     results = []
     for round_index, order in enumerate(ROUND_DEVICE_ORDER):
         for device in order:
@@ -194,3 +203,87 @@ def benchmark_inference(checkpoint_dir: Path, validation: SplitView, output_dir:
         "files": {"benchmark.json": sha256_file(benchmark_path)},
     }, indent=2))
     return benchmark_path
+
+
+def load_benchmark_evidence(input_dir: Path) -> dict:
+    """Independently recompute timing summaries without running a model."""
+    directory = Path(input_dir)
+    try:
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError("benchmark evidence must be a real directory")
+        if {path.name for path in directory.iterdir()} != {"benchmark.json", "manifest.json"}:
+            raise ValueError("benchmark evidence files do not match schema")
+        if any(path.is_symlink() or not path.is_file() for path in directory.iterdir()):
+            raise ValueError("benchmark evidence files must be regular")
+        outer = decode_object((directory / "manifest.json").read_text())
+        require_equal(outer, {"schema_version": 1,
+            "files": {"benchmark.json": sha256_file(directory / "benchmark.json")}},
+            "benchmark evidence checksums")
+        payload = decode_object((directory / "benchmark.json").read_text())
+        require_fields(payload, BENCHMARK_FIELDS, "benchmark evidence")
+        if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
+            raise ValueError("unsupported benchmark evidence schema")
+        if not isinstance(payload["source_sha"], str) or re.fullmatch(
+                r"[0-9a-f]{40}", payload["source_sha"]) is None:
+            raise ValueError("benchmark source SHA is invalid")
+        validate_hash(payload["checkpoint_manifest_sha256"])
+        require_fields(payload["validation"], {
+            "dataset_version", "manifest_sha256", "train_sha256", "row_count",
+        }, "benchmark validation identity")
+        if (payload["validation"]["dataset_version"] != DATASET_VERSION or
+                type(payload["validation"]["row_count"]) is not int or
+                payload["validation"]["row_count"] != 800):
+            raise ValueError("benchmark validation membership does not match protocol")
+        validate_hash(payload["validation"]["manifest_sha256"])
+        validate_hash(payload["validation"]["train_sha256"])
+        require_equal(payload["round_device_order"], [list(row) for row in ROUND_DEVICE_ORDER],
+                      "benchmark round order")
+        require_equal(payload["protocol"], {
+            "batch_sizes": list(BATCH_SIZES), "warmup_count": WARMUPS,
+            "measured_count": MEASURED,
+            "round_device_order": [list(row) for row in ROUND_DEVICE_ORDER],
+            "modes": ["end_to_end", "model_only"],
+        }, "benchmark protocol")
+        environment = payload["environment"]
+        required_environment = {
+            "os", "os_release", "architecture", "processor", "python", "torch", "numpy",
+            "cpu_intraop_threads", "cpu_interop_threads", "power_state", "competing_load",
+        }
+        require_fields(environment, required_environment, "benchmark environment")
+        if environment["cpu_intraop_threads"] != 1 or environment["cpu_interop_threads"] != 1:
+            raise ValueError("benchmark CPU threads are not pinned")
+        grouped = {(round_index, device): [] for round_index, order in enumerate(ROUND_DEVICE_ORDER)
+                   for device in order}
+        for row in payload["results"]:
+            key = (row.get("round"), row.get("device")) if isinstance(row, dict) else None
+            if key not in grouped:
+                raise ValueError("benchmark result has undeclared round/device")
+            grouped[key].append(row)
+            if row.get("status") == "failed":
+                require_fields(row, {"status", "device", "round", "failure_reason"},
+                               "failed benchmark result")
+                if not isinstance(row["failure_reason"], str) or not row["failure_reason"]:
+                    raise ValueError("benchmark failure reason must be nonempty")
+                continue
+            require_fields(row, {"status", "device", "round", "mode", "batch_size", "dtype",
+                                 "warmup_count", "samples_s", "summary"},
+                           "successful benchmark result")
+            if (row["status"] != "success" or row["mode"] not in ("end_to_end", "model_only") or
+                    row["batch_size"] not in BATCH_SIZES or row["dtype"] != "float32" or
+                    row["warmup_count"] != WARMUPS or not isinstance(row["samples_s"], list) or
+                    len(row["samples_s"]) != MEASURED):
+                raise ValueError("benchmark workload does not match protocol")
+            samples = tuple(row["samples_s"])
+            require_equal(row["summary"], _summary(samples, row["batch_size"]),
+                          "benchmark timing summary")
+        expected_workloads = {(mode, batch) for mode in ("end_to_end", "model_only")
+                              for batch in BATCH_SIZES}
+        for rows in grouped.values():
+            if len(rows) == 1 and rows[0]["status"] == "failed":
+                continue
+            if any(row["status"] != "success" for row in rows) or {
+                    (row["mode"], row["batch_size"]) for row in rows} != expected_workloads:
+                raise ValueError("benchmark round/device workload coverage is incomplete")
+        return payload
+    except (OSError, UnicodeError, KeyError, TypeError) as error:
+        raise ValueError("cannot audit benchmark evidence") from error

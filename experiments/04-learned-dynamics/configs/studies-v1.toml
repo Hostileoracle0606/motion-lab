@@ -1,0 +1,6 @@
+schema_version = 1
+training_config = "training-v1.toml"
+evaluation_config = "evaluation-v1.toml"
+output_dir = "../results/study-v1"
+benchmark_output_dir = "../results/benchmark-v1"
+artifact_budget_bytes = 524288000

@@ -324,6 +324,52 @@ The command is implemented and tested with deterministic fake clocks. No
 actual CPU-versus-MPS speed claim exists until the frozen checkpoint is trained
 and this command publishes its raw measurement bundle.
 
+## Frozen ablation study and report
+
+`configs/studies-v1.toml` binds the existing 45-run training roster, Stage 4
+evaluation config, 500 MiB budget, benchmark output, and study output. The
+validation phase runs all 30 MPS repeat-0 variant/seed combinations plus 15
+canonical CPU/MPS repeat diagnostics, then freezes every success, failure,
+checkpoint hash, selected epoch, and validation metric before final test is
+permitted. The final-test phase uses only the 30 MPS repeat-0 candidates and
+the six baselines; CPU and repeat-1 runs remain diagnostics.
+
+The ablations change one declared factor at a time: width 32 versus 16 on all
+rows, zero versus one history step on `history_common`, and one-step versus
+five-step recursive loss on `loss_common`. Matched memberships keep eligibility
+differences from masquerading as model improvements. Five seeds reveal
+optimization variation on the same collected data; they do not create five
+independent datasets or five held-out scenarios.
+
+After committing a clean source/config state, the frozen sequence is:
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/run_studies.py \
+  --config experiments/04-learned-dynamics/configs/studies-v1.toml \
+  --output experiments/04-learned-dynamics/results/study-v1 \
+  --phase validation \
+  --power-state "observed power state" \
+  --competing-load "observed competing load"
+
+uv run --frozen python experiments/04-learned-dynamics/scripts/run_studies.py \
+  --config experiments/04-learned-dynamics/configs/studies-v1.toml \
+  --output experiments/04-learned-dynamics/results/study-v1 \
+  --phase final_test
+
+uv run --frozen python experiments/04-learned-dynamics/scripts/generate_report.py \
+  --input experiments/04-learned-dynamics/results/study-v1 \
+  --output experiments/04-learned-dynamics/results/report-v1
+```
+
+Report generation reloads independently audited evaluation and timing bundles;
+it never trains, predicts, or queries simulator dynamics. It retains raw
+per-seed and per-episode values, failed/unavailable denominators, learning
+curves, timing samples, means and sample standard deviations (`ddof=1`), plot
+arrays, CSVs, and limitation-focused Markdown. Missing or wholly failed seeds
+prevent a complete-matrix claim. The narrow scenario holdout, correlated
+overlapping windows, known-physics baselines, joint-limit cases, and lack of
+physical-robot evidence remain explicit.
+
 ### Review decisions and replay boundary
 
 Only the six variants' five MPS repeat-0 runs enter final learned-test records.
