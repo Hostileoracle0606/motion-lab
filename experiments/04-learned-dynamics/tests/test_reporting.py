@@ -111,20 +111,24 @@ def test_generate_report_uses_only_audited_saved_records(tmp_path, monkeypatch):
                         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("training")))
     monkeypatch.setattr("learned_dynamics.evaluation.run_evaluation",
                         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("inference")))
-    input_dir = tmp_path / "input"
-    (input_dir / "evaluation").mkdir(parents=True)
-    (input_dir / "benchmark").mkdir()
-    (input_dir / "evaluation/manifest.json").write_text("evaluation\n")
-    (input_dir / "benchmark/manifest.json").write_text("benchmark\n")
+    results_dir = tmp_path / "results"
+    input_dir = results_dir / "study-v1"
+    evaluation_dir = results_dir / "evaluation-v1"
+    benchmark_dir = results_dir / "benchmark-v1"
+    input_dir.mkdir(parents=True)
+    evaluation_dir.mkdir()
+    benchmark_dir.mkdir()
+    (evaluation_dir / "manifest.json").write_text("evaluation\n")
+    (benchmark_dir / "manifest.json").write_text("benchmark\n")
     evaluation_hash = hashlib.sha256(
-        (input_dir / "evaluation/manifest.json").read_bytes()).hexdigest()
+        (evaluation_dir / "manifest.json").read_bytes()).hexdigest()
     benchmark_hash = hashlib.sha256(
-        (input_dir / "benchmark/manifest.json").read_bytes()).hexdigest()
+        (benchmark_dir / "manifest.json").read_bytes()).hexdigest()
     (input_dir / "final-test.json").write_text(json.dumps({
         "schema_version": 1, "study_config_sha256": "b" * 64,
         "validation_freeze_sha256": "c" * 64,
-        "evaluation_dir": "evaluation", "evaluation_manifest_sha256": evaluation_hash,
-        "benchmark_dir": "benchmark", "benchmark_manifest_sha256": benchmark_hash}))
+        "evaluation_dir": "../evaluation-v1", "evaluation_manifest_sha256": evaluation_hash,
+        "benchmark_dir": "../benchmark-v1", "benchmark_manifest_sha256": benchmark_hash}))
     report = generate_report(input_dir, tmp_path / "report")
     assert report.is_file()
     for name in ("one_step.csv", "rollouts.csv", "coverage.csv", "per_episode.csv",

@@ -67,6 +67,20 @@ def _timing_rows(benchmark: dict) -> list[dict]:
     return rows
 
 
+def _resolve_study_input(study: Path, value: object) -> Path:
+    if not isinstance(value, str) or not value or Path(value).is_absolute():
+        raise ValueError("report inputs must be local relative directories")
+    results_root = study.resolve().parent
+    resolved = (study / value).resolve()
+    try:
+        resolved.relative_to(results_root)
+    except ValueError as error:
+        raise ValueError("report inputs must stay within the study results root") from error
+    if resolved == study.resolve():
+        raise ValueError("report inputs must be distinct from the study directory")
+    return resolved
+
+
 def generate_report(input_dir: Path, output_dir: Path) -> Path:
     study = Path(input_dir)
     output = Path(output_dir)
@@ -80,11 +94,8 @@ def generate_report(input_dir: Path, output_dir: Path) -> Path:
     }, "final-test study record")
     if type(final["schema_version"]) is not int or final["schema_version"] != 1:
         raise ValueError("unsupported final-test study schema")
-    for name in ("evaluation_dir", "benchmark_dir"):
-        value = final.get(name)
-        if not isinstance(value, str) or not value or Path(value).is_absolute() or ".." in Path(value).parts:
-            raise ValueError("report inputs must be local relative directories")
-    evaluation_dir, benchmark_dir = study / final["evaluation_dir"], study / final["benchmark_dir"]
+    evaluation_dir = _resolve_study_input(study, final["evaluation_dir"])
+    benchmark_dir = _resolve_study_input(study, final["benchmark_dir"])
     require_equal(final["evaluation_manifest_sha256"],
                   sha256_file(evaluation_dir / "manifest.json"),
                   "final-test evaluation manifest")
