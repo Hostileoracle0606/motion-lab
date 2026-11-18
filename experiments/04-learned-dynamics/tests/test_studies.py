@@ -121,7 +121,9 @@ def test_validation_phase_trains_then_freezes_before_benchmark(tmp_path, monkeyp
     assert path.is_file()
 
 
-def test_final_phase_requires_exact_frozen_roster_before_evaluation(tmp_path, monkeypatch):
+@pytest.mark.parametrize("benchmark_available", [True, False])
+def test_final_phase_requires_exact_frozen_roster_before_evaluation(
+        tmp_path, monkeypatch, benchmark_available):
     from learned_dynamics import studies
 
     roster_dir, study_dir = tmp_path / "training", tmp_path / "study"
@@ -146,8 +148,13 @@ def test_final_phase_requires_exact_frozen_roster_before_evaluation(tmp_path, mo
                         lambda path: type("Training", (), {"output_dir": roster_dir})())
     monkeypatch.setattr(studies, "load_run_manifest", lambda path: roster)
     evaluation_output = tmp_path / "evaluation"
-    config.benchmark_output_dir.mkdir()
-    (config.benchmark_output_dir / "manifest.json").write_text("benchmark\n")
+    if benchmark_available:
+        config.benchmark_output_dir.mkdir()
+        (config.benchmark_output_dir / "manifest.json").write_text("benchmark\n")
+    else:
+        (study_dir / "benchmark-unavailable.json").write_text(json.dumps({
+            "schema_version": 1, "status": "unavailable", "run_id": "run-a",
+            "reason": "synthetic canonical failure"}))
     monkeypatch.setattr(studies, "load_evaluation_config",
                         lambda path: type("Evaluation", (), {"output_dir": evaluation_output})())
 
@@ -163,7 +170,13 @@ def test_final_phase_requires_exact_frozen_roster_before_evaluation(tmp_path, mo
     assert len(calls) == 1
     payload = json.loads(path.read_text())
     assert payload["evaluation_dir"] == "../evaluation"
-    assert payload["benchmark_dir"] == "../benchmark"
+    assert payload["benchmark_status"] == (
+        "available" if benchmark_available else "unavailable")
+    if benchmark_available:
+        assert payload["benchmark_dir"] == "../benchmark"
+    else:
+        assert payload["benchmark_dir"] is None
+        assert payload["benchmark_unavailable_sha256"]
 
 
 def test_run_studies_cli_requires_explicit_phase_and_output():

@@ -13,7 +13,8 @@ def horizon_series(rows, metric: str) -> dict:
     for row in rows:
         value = row.get(metric)
         if value is not None:
-            grouped[row["variant_id"]].append((row["horizon_steps"], float(value)))
+            identity = f'{row["variant_id"]}/{row["membership"]}'
+            grouped[identity].append((row["horizon_steps"], float(value)))
     return {variant: {"horizons": [x for x, _ in sorted(values)],
                       "values": [y for _, y in sorted(values)]}
             for variant, values in sorted(grouped.items())}

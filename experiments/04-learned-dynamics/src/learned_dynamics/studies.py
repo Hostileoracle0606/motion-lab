@@ -215,15 +215,36 @@ def run_studies(config_path: Path, output_dir: Path,
         if not manifest.is_file() or manifest.is_symlink():
             raise ValueError("final-test evidence manifest is missing or unsafe")
         benchmark_manifest = config.benchmark_output_dir / "manifest.json"
-        if not benchmark_manifest.is_file() or benchmark_manifest.is_symlink():
-            raise ValueError("benchmark evidence manifest is missing or unsafe")
+        benchmark_unavailable = study_output / "benchmark-unavailable.json"
+        if benchmark_manifest.is_file() and not benchmark_manifest.is_symlink():
+            benchmark_status = "available"
+            benchmark_dir = os.path.relpath(config.benchmark_output_dir, study_output)
+            benchmark_manifest_sha256 = sha256_file(benchmark_manifest)
+            benchmark_unavailable_sha256 = None
+        elif benchmark_unavailable.is_file() and not benchmark_unavailable.is_symlink():
+            unavailable = decode_object(benchmark_unavailable.read_text())
+            require_fields(unavailable, {
+                "schema_version", "run_id", "status", "reason",
+            }, "benchmark-unavailable record")
+            if (unavailable["schema_version"] != 1 or
+                    unavailable["status"] != "unavailable" or
+                    not isinstance(unavailable["reason"], str) or
+                    not unavailable["reason"]):
+                raise ValueError("benchmark-unavailable record is invalid")
+            benchmark_status = "unavailable"
+            benchmark_dir = None
+            benchmark_manifest_sha256 = None
+            benchmark_unavailable_sha256 = sha256_file(benchmark_unavailable)
+        else:
+            raise ValueError("benchmark outcome evidence is missing or unsafe")
         path.write_bytes(json_bytes({
             "schema_version": 1, "study_config_sha256": config.config_sha256,
             "validation_freeze_sha256": sha256_file(study_output / "validation-freeze.json"),
             "evaluation_dir": os.path.relpath(Path(evidence_dir).resolve(), study_output),
             "evaluation_manifest_sha256": sha256_file(manifest),
-            "benchmark_dir": os.path.relpath(config.benchmark_output_dir, study_output),
-            "benchmark_manifest_sha256": sha256_file(benchmark_manifest),
+            "benchmark_status": benchmark_status, "benchmark_dir": benchmark_dir,
+            "benchmark_manifest_sha256": benchmark_manifest_sha256,
+            "benchmark_unavailable_sha256": benchmark_unavailable_sha256,
         }, indent=2))
         return path
     raise ValueError("study phase must be validation or final_test")

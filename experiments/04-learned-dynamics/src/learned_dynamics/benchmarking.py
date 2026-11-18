@@ -74,6 +74,25 @@ def _summary(samples: tuple[float, ...], batch_size: int) -> dict:
     }
 
 
+def _timing_result(device: str, round_index: int, mode: str, batch_size: int,
+                   samples: tuple[float, ...]) -> dict:
+    return {
+        "status": "success", "device": device, "round": round_index,
+        "mode": mode, "batch_size": batch_size, "dtype": "float32",
+        "warmup_count": WARMUPS, "samples_s": list(samples),
+        "summary": _summary(samples, batch_size),
+    }
+
+
+def _failed_workload(device: str, round_index: int, mode: str,
+                     batch_size: int, error: Exception) -> dict:
+    return {
+        "status": "failed", "device": device, "round": round_index,
+        "mode": mode, "batch_size": batch_size,
+        "failure_reason": f"{type(error).__name__}: {error}",
+    }
+
+
 def _benchmark_device(checkpoint_dir: Path, validation: SplitView,
                       device: str, round_index: int) -> tuple[dict, ...]:
     if not isinstance(validation, SplitView) or validation.split != "validation":
@@ -98,31 +117,31 @@ def _benchmark_device(checkpoint_dir: Path, validation: SplitView,
         def end_to_end():
             predictor.predict_batch(states, actions, SUPPORTED_CONTEXT)
 
-        end_samples = _measure_calls(end_to_end, synchronize, time.perf_counter,
-                                     warmups=WARMUPS, measured=MEASURED)
-        rows.append({
-            "status": "success", "device": device, "round": round_index,
-            "mode": "end_to_end", "batch_size": batch_size, "dtype": "float32",
-            "warmup_count": WARMUPS, "samples_s": list(end_samples),
-            "summary": _summary(end_samples, batch_size),
-        })
+        try:
+            end_samples = _measure_calls(end_to_end, synchronize, time.perf_counter,
+                                         warmups=WARMUPS, measured=MEASURED)
+            rows.append(_timing_result(
+                device, round_index, "end_to_end", batch_size, end_samples))
+        except (ValueError, RuntimeError, NotImplementedError) as error:
+            rows.append(_failed_workload(
+                device, round_index, "end_to_end", batch_size, error))
 
-        physical = np.column_stack((states, actions))
-        normalized = transform_inputs(physical, bundle.normalizer).astype(np.float32)
-        resident = torch.from_numpy(normalized).to(device)
+        try:
+            physical = np.column_stack((states, actions))
+            normalized = transform_inputs(physical, bundle.normalizer).astype(np.float32)
+            resident = torch.from_numpy(normalized).to(device)
 
-        def model_only():
-            with torch.inference_mode():
-                bundle.model(resident)
+            def model_only():
+                with torch.inference_mode():
+                    bundle.model(resident)
 
-        model_samples = _measure_calls(model_only, synchronize, time.perf_counter,
-                                       warmups=WARMUPS, measured=MEASURED)
-        rows.append({
-            "status": "success", "device": device, "round": round_index,
-            "mode": "model_only", "batch_size": batch_size, "dtype": "float32",
-            "warmup_count": WARMUPS, "samples_s": list(model_samples),
-            "summary": _summary(model_samples, batch_size),
-        })
+            model_samples = _measure_calls(model_only, synchronize, time.perf_counter,
+                                           warmups=WARMUPS, measured=MEASURED)
+            rows.append(_timing_result(
+                device, round_index, "model_only", batch_size, model_samples))
+        except (ValueError, RuntimeError, NotImplementedError) as error:
+            rows.append(_failed_workload(
+                device, round_index, "model_only", batch_size, error))
     return tuple(rows)
 
 
@@ -132,10 +151,21 @@ def _source_sha() -> str:
     return result.stdout.strip()
 
 
+def _hardware_model() -> str:
+    if platform.system() != "Darwin":
+        return platform.processor() or platform.machine() or "unavailable"
+    result = subprocess.run(
+        ["sysctl", "-n", "machdep.cpu.brand_string"],
+        capture_output=True, text=True, check=False)
+    value = result.stdout.strip()
+    return value if result.returncode == 0 and value else "unavailable"
+
+
 def _environment() -> dict:
     return {
         "os": platform.system(), "os_release": platform.release(),
         "architecture": platform.machine(), "processor": platform.processor() or "unavailable",
+        "hardware_model": _hardware_model(),
         "python": platform.python_version(), "torch": torch.__version__,
         "numpy": np.__version__, "cpu_intraop_threads": torch.get_num_threads(),
         "cpu_interop_threads": torch.get_num_interop_threads(),
@@ -178,7 +208,7 @@ def benchmark_inference(checkpoint_dir: Path, validation: SplitView, output_dir:
                     "failure_reason": f"{type(error).__name__}: {error}",
                 })
     payload = {
-        "schema_version": 1, "source_sha": _source_sha(),
+        "schema_version": 2, "source_sha": _source_sha(),
         "checkpoint_manifest_sha256": sha256_file(manifest),
         "validation": {
             "dataset_version": validation.dataset_version,
@@ -221,7 +251,7 @@ def load_benchmark_evidence(input_dir: Path) -> dict:
             "benchmark evidence checksums")
         payload = decode_object((directory / "benchmark.json").read_text())
         require_fields(payload, BENCHMARK_FIELDS, "benchmark evidence")
-        if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
+        if type(payload["schema_version"]) is not int or payload["schema_version"] not in (1, 2):
             raise ValueError("unsupported benchmark evidence schema")
         if not isinstance(payload["source_sha"], str) or re.fullmatch(
                 r"[0-9a-f]{40}", payload["source_sha"]) is None:
@@ -249,7 +279,13 @@ def load_benchmark_evidence(input_dir: Path) -> dict:
             "os", "os_release", "architecture", "processor", "python", "torch", "numpy",
             "cpu_intraop_threads", "cpu_interop_threads", "power_state", "competing_load",
         }
+        if payload["schema_version"] == 2:
+            required_environment.add("hardware_model")
         require_fields(environment, required_environment, "benchmark environment")
+        if (payload["schema_version"] == 2 and
+                (not isinstance(environment["hardware_model"], str) or
+                 not environment["hardware_model"])):
+            raise ValueError("benchmark hardware model must be nonempty")
         if environment["cpu_intraop_threads"] != 1 or environment["cpu_interop_threads"] != 1:
             raise ValueError("benchmark CPU threads are not pinned")
         grouped = {(round_index, device): [] for round_index, order in enumerate(ROUND_DEVICE_ORDER)
@@ -260,10 +296,16 @@ def load_benchmark_evidence(input_dir: Path) -> dict:
                 raise ValueError("benchmark result has undeclared round/device")
             grouped[key].append(row)
             if row.get("status") == "failed":
-                require_fields(row, {"status", "device", "round", "failure_reason"},
-                               "failed benchmark result")
+                generic_fields = {"status", "device", "round", "failure_reason"}
+                workload_fields = generic_fields | {"mode", "batch_size"}
+                fields = workload_fields if "mode" in row or "batch_size" in row else generic_fields
+                require_fields(row, fields, "failed benchmark result")
                 if not isinstance(row["failure_reason"], str) or not row["failure_reason"]:
                     raise ValueError("benchmark failure reason must be nonempty")
+                if fields == workload_fields and (
+                        row["mode"] not in ("end_to_end", "model_only") or
+                        row["batch_size"] not in BATCH_SIZES):
+                    raise ValueError("failed benchmark workload does not match protocol")
                 continue
             require_fields(row, {"status", "device", "round", "mode", "batch_size", "dtype",
                                  "warmup_count", "samples_s", "summary"},
@@ -281,8 +323,9 @@ def load_benchmark_evidence(input_dir: Path) -> dict:
         for rows in grouped.values():
             if len(rows) == 1 and rows[0]["status"] == "failed":
                 continue
-            if any(row["status"] != "success" for row in rows) or {
-                    (row["mode"], row["batch_size"]) for row in rows} != expected_workloads:
+            if len(rows) != len(expected_workloads) or {
+                    (row.get("mode"), row.get("batch_size")) for row in rows
+                    } != expected_workloads:
                 raise ValueError("benchmark round/device workload coverage is incomplete")
         return payload
     except (OSError, UnicodeError, KeyError, TypeError) as error:

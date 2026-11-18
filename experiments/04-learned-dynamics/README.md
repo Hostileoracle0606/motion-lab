@@ -287,11 +287,10 @@ uv run python experiments/04-learned-dynamics/scripts/replay_checkpoints.py --he
 ```
 
 The first command requires `--allow-final-test` before executing the real test
-protocol. Issue #28 exercises only short synthetic records and checkpoint
-replay fixtures; #29 owns the one-time frozen 45-run study and final learned
-test evaluation. Consequently this implementation establishes evaluation and
-audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
-generalization beyond the four simulated scenarios and single collection seed.
+protocol. Issue #28 established the evaluator and replay boundary; #29 executed
+the separately frozen 45-run study and final learned test. Those results remain
+evidence about one simulated dataset and protocol, not physical fidelity or
+generalization to new masses, friction, noise, hardware, or robots.
 
 ## Synchronized device benchmarking
 
@@ -320,9 +319,12 @@ uv run --frozen python experiments/04-learned-dynamics/scripts/benchmark_devices
   --competing-load "interactive applications observed"
 ```
 
-The command is implemented and tested with deterministic fake clocks. No
-actual CPU-versus-MPS speed claim exists until the frozen checkpoint is trained
-and this command publishes its raw measurement bundle.
+The executed local bundle retained all 24 declared workloads. For this small
+model and these batch sizes, CPU latency was lower than MPS latency in every
+mode; this is a bounded negative result, not a general CPU/GPU ranking. The
+schema-v1 run recorded architecture, software, power, load, and device identity
+but not a concrete chip name. Benchmark schema v2 adds that field without
+rewriting the original observations.
 
 ## Frozen ablation study and report
 
@@ -358,7 +360,7 @@ uv run --frozen python experiments/04-learned-dynamics/scripts/run_studies.py \
 
 uv run --frozen python experiments/04-learned-dynamics/scripts/generate_report.py \
   --input experiments/04-learned-dynamics/results/study-v1 \
-  --output experiments/04-learned-dynamics/results/report-v1
+  --output /fresh/output/report
 ```
 
 Report generation reloads independently audited evaluation and timing bundles;
@@ -366,9 +368,20 @@ it never trains, predicts, or queries simulator dynamics. It retains raw
 per-seed and per-episode values, failed/unavailable denominators, learning
 curves, timing samples, means and sample standard deviations (`ddof=1`), plot
 arrays, CSVs, and limitation-focused Markdown. Missing or wholly failed seeds
-prevent a complete-matrix claim. The narrow scenario holdout, correlated
-overlapping windows, known-physics baselines, joint-limit cases, and lack of
-physical-robot evidence remain explicit.
+prevent a complete-matrix claim. The final held-out outcomes contain two
+`positive-to-negative-narrow` episodes. Correlated overlapping windows,
+known-physics baselines, and lack of physical-robot evidence remain explicit;
+the report does not misdescribe training joint-limit episodes as held-out data.
+
+The executed local study completed 45/45 training runs, 24/24 timing workloads,
+and an audited final bundle with 230,400 prediction records and 288 summaries.
+The evidence tree is about 372 MiB, including a roughly 360 MiB JSONL file, so
+it is intentionally uncommitted pending a durable artifact-store decision.
+Until those files are published, a remote reader can review the machinery and
+checksums but cannot independently retrieve the raw study. The evaluation
+record also preserves its observed dirty-worktree flag; generated untracked
+outputs existed during final evaluation, while the training roster records a
+clean source commit. Neither fact is normalized away in the report.
 
 ### Review decisions and replay boundary
 
@@ -378,9 +391,10 @@ the real final-test entry point rejects an incomplete 30-run publication matrix.
 Failed selected runs remain failed candidates, never invented successful
 predictions. Low-level synthetic fixtures may declare a smaller matrix.
 
-Evidence includes evaluator commit/dirty state, runtime and actual command,
-separately from the source that trained the checkpoints. These are declared
-provenance, not authentication of execution history. Episode outcomes and
+Evidence includes evaluator and report-generator commits/dirty states, runtime,
+dataset/config hashes, and actual commands, separately from the source that
+trained the checkpoints. These are declared provenance, not authentication of
+execution history. Episode outcomes and
 per-episode/scenario/controller/split counts and component metrics are saved
 and independently recomputed. Training-seed identities remain explicit; #29
 owns the full study, cross-seed variation analysis and rendered reports.
@@ -402,7 +416,7 @@ match the validated training roster provenance. Auditing therefore requires
 the original config and input artifacts to remain available; moving a bundle
 alone is not supported. These consistency checks are not signed provenance.
 
-The stewardship executor finished this bounded review repair after the
-original chat could not resume because the app's execution configuration was
-loading. The existing implementation/worktree and approved protocol were
-preserved; no full training study or real final-test evaluation was run.
+The final review additionally preserves successful benchmark workloads when a
+later workload fails, permits a study with an explicit benchmark-unavailable
+record to publish its negative outcome, qualifies plot identities by evaluation
+membership, and emits quantitative study, timing, and provenance summaries.
