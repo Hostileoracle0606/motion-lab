@@ -335,10 +335,10 @@ def train(config_path: Path, output_dir: Path, *, allow_full_study: bool = False
     output = Path(output_dir).resolve()
     if output != config.output_dir:
         raise ValueError("--output must match the file-relative configured output")
-    if output.exists() or output.is_symlink():
-        raise ValueError("training output already exists; restart from a fresh path")
     if len(config.runs) == 45 and not allow_full_study:
         raise ValueError("the full 45-run study is gated to Task 9; pass the explicit study gate")
+    if output.exists() or output.is_symlink():
+        raise ValueError("training output already exists; restart from a fresh path")
     source, dirty = _source_state()
     views = load_views(config.dataset_dir, config.dataset_version)
     normalizer = fit_normalizer(views.train)

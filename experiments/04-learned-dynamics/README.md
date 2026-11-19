@@ -287,11 +287,143 @@ uv run python experiments/04-learned-dynamics/scripts/replay_checkpoints.py --he
 ```
 
 The first command requires `--allow-final-test` before executing the real test
-protocol. Issue #28 exercises only short synthetic records and checkpoint
-replay fixtures; #29 owns the one-time frozen 45-run study and final learned
-test evaluation. Consequently this implementation establishes evaluation and
-audit behavior, not learned-model accuracy, GPU speed, physical fidelity, or
-generalization beyond the four simulated scenarios and single collection seed.
+protocol. Issue #28 established the evaluator and replay boundary; #29 executed
+the separately frozen 45-run study and final learned test. Those results remain
+evidence about one simulated dataset and protocol, not physical fidelity or
+generalization to new masses, friction, noise, hardware, or robots.
+
+## Synchronized device benchmarking
+
+`benchmark_devices.py` measures the canonical MPS seed-0 repeat-0 checkpoint
+on both CPU and MPS using validation data only. Batch sizes 1 and 256 each use
+20 warm-ups and 100 retained samples in three alternating CPU/MPS rounds.
+End-to-end timing starts with CPU-resident physical arrays and includes
+normalization, transfer, model execution, inverse scaling and CPU output;
+model-only timing uses already normalized, device-resident float32 tensors.
+MPS is synchronized immediately before and after every timed region. CPU
+intra-op and inter-op thread counts are pinned to one.
+
+The benchmark retains every timing sample, median, linearly interpolated p95,
+batch latency, throughput, device/build identity, power state and observed
+competing load. An unsupported or failed MPS attempt is recorded as MPS failure
+and never relabeled as CPU. There is no pass/fail speed threshold: timing is a
+measurement, not the device-selection rule, a bitwise reproducibility claim,
+or evidence of real-time closed-loop control.
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/benchmark_devices.py \
+  --checkpoint /path/to/canonical32-mps-seed0-repeat0/checkpoint \
+  --dataset experiments/02-state-transition-dataset/data/dataset-v1 \
+  --output /fresh/output/benchmark \
+  --power-state "AC power; battery percentage observed" \
+  --competing-load "interactive applications observed"
+```
+
+The executed local bundle retained all 24 declared workloads. For this small
+model and these batch sizes, CPU latency was lower than MPS latency in every
+mode; this is a bounded negative result, not a general CPU/GPU ranking. The
+schema-v1 run recorded architecture, software, power, load, and device identity
+but not a concrete chip name. Benchmark schema v2 adds that field without
+rewriting the original observations.
+
+## Frozen ablation study and report
+
+`configs/studies-v1.toml` binds the existing 45-run training roster, Stage 4
+evaluation config, 500 MiB budget, benchmark output, and study output. The
+validation phase runs all 30 MPS repeat-0 variant/seed combinations plus 15
+canonical CPU/MPS repeat diagnostics, then freezes every success, failure,
+checkpoint hash, selected epoch, and validation metric before final test is
+permitted. The final-test phase uses only the 30 MPS repeat-0 candidates and
+the six baselines; CPU and repeat-1 runs remain diagnostics.
+
+The ablations change one declared factor at a time: width 32 versus 16 on all
+rows, zero versus one history step on `history_common`, and one-step versus
+five-step recursive loss on `loss_common`. Matched memberships keep eligibility
+differences from masquerading as model improvements. Five seeds reveal
+optimization variation on the same collected data; they do not create five
+independent datasets or five held-out scenarios.
+
+After committing a clean source/config state, the frozen sequence is:
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/run_studies.py \
+  --config experiments/04-learned-dynamics/configs/studies-v1.toml \
+  --output experiments/04-learned-dynamics/results/study-v1 \
+  --phase validation \
+  --power-state "observed power state" \
+  --competing-load "observed competing load"
+
+uv run --frozen python experiments/04-learned-dynamics/scripts/run_studies.py \
+  --config experiments/04-learned-dynamics/configs/studies-v1.toml \
+  --output experiments/04-learned-dynamics/results/study-v1 \
+  --phase final_test
+
+uv run --frozen python experiments/04-learned-dynamics/scripts/generate_report.py \
+  --input experiments/04-learned-dynamics/results/study-v1 \
+  --output /fresh/output/report
+```
+
+Report generation reloads independently audited evaluation and timing bundles;
+it never trains, predicts, or queries simulator dynamics. It retains raw
+per-seed and per-episode values, failed/unavailable denominators, learning
+curves, timing samples, means and sample standard deviations (`ddof=1`), plot
+arrays, CSVs, and limitation-focused Markdown. Missing or wholly failed seeds
+prevent a complete-matrix claim. The final held-out outcomes contain two
+`positive-to-negative-narrow` episodes. Correlated overlapping windows,
+known-physics baselines, and lack of physical-robot evidence remain explicit;
+the report does not misdescribe training joint-limit episodes as held-out data.
+
+### Download and audit the published study
+
+The [Experiment 04 study release][study-release] contains all 45 training
+runs and their checkpoints, frozen validation selections, 24 timing workloads
+with raw samples, 230,400 prediction records, 288 evaluation summaries, and
+report-v4. The archive is 20,130,463 bytes. Its SHA-256 is
+`f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a`.
+
+From a clone of Motion Lab, use a fresh checkout of the report-generator
+commit so the saved paths resolve against the original configs and dataset.
+`curl`, `shasum`, `tar`, and `uv` are required.
+
+```bash
+git fetch origin tag experiment-04-study-v1
+git worktree add --detach ../motion-lab-study-v1 experiment-04-study-v1
+cd ../motion-lab-study-v1
+uv sync --locked
+
+release_url=https://github.com/Hostileoracle0606/motion-lab/releases/download/experiment-04-study-v1
+download_dir=$(mktemp -d)
+archive=motion-lab-experiment-04-study-v1.tar.gz
+curl -fL "$release_url/$archive" -o "$download_dir/$archive"
+curl -fL "$release_url/SHA256SUMS" -o "$download_dir/SHA256SUMS"
+(
+  cd "$download_dir" &&
+  shasum -a 256 -c SHA256SUMS &&
+  printf '%s  %s\n' f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a "$archive" |
+    shasum -a 256 -c -
+) &&
+  tar -xzf "$download_dir/$archive" -C "$download_dir" &&
+  (cd "$download_dir" && shasum -a 256 -c EVIDENCE-SHA256SUMS) &&
+  test ! -e experiments/04-learned-dynamics/results &&
+  mv "$download_dir/experiments/04-learned-dynamics/results" experiments/04-learned-dynamics/
+```
+
+After the checksums pass, regenerate the report in a fresh directory.
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/generate_report.py \
+  --input experiments/04-learned-dynamics/results/study-v1 \
+  --output experiments/04-learned-dynamics/results/report-rebuilt
+```
+
+Compare the rebuilt CSVs and `plot_data.json` with the published report-v4.
+The regenerated provenance records the new output path. The original
+evaluation preserves its dirty-worktree flag from the run with generated
+untracked outputs. The training roster records a clean source commit.
+Independent retraining and checkpoint replay are tracked in [Issue #30][reproduction].
+
+[study-release]: https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-study-v1
+[reproduction]: https://github.com/Hostileoracle0606/motion-lab/issues/30
 
 ### Review decisions and replay boundary
 
@@ -301,9 +433,10 @@ the real final-test entry point rejects an incomplete 30-run publication matrix.
 Failed selected runs remain failed candidates, never invented successful
 predictions. Low-level synthetic fixtures may declare a smaller matrix.
 
-Evidence includes evaluator commit/dirty state, runtime and actual command,
-separately from the source that trained the checkpoints. These are declared
-provenance, not authentication of execution history. Episode outcomes and
+Evidence includes evaluator and report-generator commits/dirty states, runtime,
+dataset/config hashes, and actual commands, separately from the source that
+trained the checkpoints. These are declared provenance, not authentication of
+execution history. Episode outcomes and
 per-episode/scenario/controller/split counts and component metrics are saved
 and independently recomputed. Training-seed identities remain explicit; #29
 owns the full study, cross-seed variation analysis and rendered reports.
@@ -325,7 +458,7 @@ match the validated training roster provenance. Auditing therefore requires
 the original config and input artifacts to remain available; moving a bundle
 alone is not supported. These consistency checks are not signed provenance.
 
-The stewardship executor finished this bounded review repair after the
-original chat could not resume because the app's execution configuration was
-loading. The existing implementation/worktree and approved protocol were
-preserved; no full training study or real final-test evaluation was run.
+The final review additionally preserves successful benchmark workloads when a
+later workload fails, permits a study with an explicit benchmark-unavailable
+record to publish its negative outcome, qualifies plot identities by evaluation
+membership, and emits quantitative study, timing, and provenance summaries.
