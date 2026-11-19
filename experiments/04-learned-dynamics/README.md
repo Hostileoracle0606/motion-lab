@@ -373,15 +373,57 @@ prevent a complete-matrix claim. The final held-out outcomes contain two
 known-physics baselines, and lack of physical-robot evidence remain explicit;
 the report does not misdescribe training joint-limit episodes as held-out data.
 
-The executed local study completed 45/45 training runs, 24/24 timing workloads,
-and an audited final bundle with 230,400 prediction records and 288 summaries.
-The evidence tree is about 372 MiB, including a roughly 360 MiB JSONL file, so
-it is intentionally uncommitted pending a durable artifact-store decision.
-Until those files are published, a remote reader can review the machinery and
-checksums but cannot independently retrieve the raw study. The evaluation
-record also preserves its observed dirty-worktree flag; generated untracked
-outputs existed during final evaluation, while the training roster records a
-clean source commit. Neither fact is normalized away in the report.
+### Download and audit the published study
+
+The [Experiment 04 study release][study-release] contains all 45 training
+runs and their checkpoints, frozen validation selections, 24 timing workloads
+with raw samples, 230,400 prediction records, 288 evaluation summaries, and
+report-v4. The archive is 20,130,463 bytes. Its SHA-256 is
+`f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a`.
+
+From a clone of Motion Lab, use a fresh checkout of the report-generator
+commit so the saved paths resolve against the original configs and dataset.
+`curl`, `shasum`, `tar`, and `uv` are required.
+
+```bash
+git fetch origin tag experiment-04-study-v1
+git worktree add --detach ../motion-lab-study-v1 experiment-04-study-v1
+cd ../motion-lab-study-v1
+uv sync --locked
+
+release_url=https://github.com/Hostileoracle0606/motion-lab/releases/download/experiment-04-study-v1
+download_dir=$(mktemp -d)
+archive=motion-lab-experiment-04-study-v1.tar.gz
+curl -fL "$release_url/$archive" -o "$download_dir/$archive"
+curl -fL "$release_url/SHA256SUMS" -o "$download_dir/SHA256SUMS"
+(
+  cd "$download_dir" &&
+  shasum -a 256 -c SHA256SUMS &&
+  printf '%s  %s\n' f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a "$archive" |
+    shasum -a 256 -c -
+) &&
+  tar -xzf "$download_dir/$archive" -C "$download_dir" &&
+  (cd "$download_dir" && shasum -a 256 -c EVIDENCE-SHA256SUMS) &&
+  test ! -e experiments/04-learned-dynamics/results &&
+  mv "$download_dir/experiments/04-learned-dynamics/results" experiments/04-learned-dynamics/
+```
+
+After the checksums pass, regenerate the report in a fresh directory.
+
+```bash
+uv run --frozen python experiments/04-learned-dynamics/scripts/generate_report.py \
+  --input experiments/04-learned-dynamics/results/study-v1 \
+  --output experiments/04-learned-dynamics/results/report-rebuilt
+```
+
+Compare the rebuilt CSVs and `plot_data.json` with the published report-v4.
+The regenerated provenance records the new output path. The original
+evaluation preserves its dirty-worktree flag from the run with generated
+untracked outputs. The training roster records a clean source commit.
+Independent retraining and checkpoint replay are tracked in [Issue #30][reproduction].
+
+[study-release]: https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-study-v1
+[reproduction]: https://github.com/Hostileoracle0606/motion-lab/issues/30
 
 ### Review decisions and replay boundary
 
