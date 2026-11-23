@@ -142,6 +142,9 @@ def _score_batched(
     predictor: Predictor, predict_batch: Callable[[np.ndarray, np.ndarray, DynamicsContext], np.ndarray],
     context: DynamicsContext, state: DynamicsState, target_position_rad: float,
     weights: CostWeights, candidates_nm: np.ndarray, feedback: Controller | None,
+    *, references: np.ndarray | None = None,
+    adjust_actions: Callable[[np.ndarray, np.ndarray, np.ndarray, int], np.ndarray] | None = None,
+    minimum_relative_improvement: float | None = None,
 ) -> PlanResult:
     candidates = _validated_candidates(context, state, target_position_rad, weights, candidates_nm)
     count, horizon = candidates.shape
@@ -156,6 +159,9 @@ def _score_batched(
                 feedback, feedback_state, target_position_rad, float(context.torque_limit_nm),
             )
         actions = candidates[active, tick]
+        if adjust_actions is not None:
+            actions = adjust_actions(states, actions, active, tick)
+            candidates[active, tick] = actions
         calls += active.size
         try:
             predictions = predict_batch(states, actions, context)
@@ -167,15 +173,19 @@ def _score_batched(
             raise ValueError("batch predictions must be a real numeric [N,2] array")
         predictions = predictions.astype(float, copy=False)
         position, velocity = predictions.T
+        desired_position, desired_velocity = (
+            (float(target_position_rad), 0.0) if references is None else references[tick + 1]
+        )
         with np.errstate(over="ignore", invalid="ignore"):
-            position_error = position - float(target_position_rad)
+            position_error = position - desired_position
+            velocity_error = velocity if references is None else velocity - desired_velocity
             costs += (float(weights.position) * position_error ** 2
-                      + float(weights.velocity) * velocity ** 2
+                      + float(weights.velocity) * velocity_error ** 2
                       + float(weights.effort) * actions ** 2)
             if tick == horizon - 1:
                 costs += float(weights.terminal_position) * position_error ** 2
                 if weights.terminal_velocity:
-                    costs += float(weights.terminal_velocity) * velocity ** 2
+                    costs += float(weights.terminal_velocity) * velocity_error ** 2
         feasible = (np.isfinite(predictions).all(axis=1) & (np.abs(position) <= POSITION_LIMIT_RAD)
                     & np.isfinite(costs))
         active = active[feasible]
@@ -184,6 +194,11 @@ def _score_batched(
         states = predictions[feasible]
         costs = costs[feasible]
     best = int(np.argmin(costs))
+    if minimum_relative_improvement is not None:
+        if active[0] != 0:
+            return PlanResult(None, None, count, active.size, int(calls))
+        if costs[best] > costs[0] * (1 - minimum_relative_improvement):
+            best = 0
     return PlanResult(tuple(map(float, candidates[active[best]])), float(costs[best]),
                       count, active.size, int(calls))
 

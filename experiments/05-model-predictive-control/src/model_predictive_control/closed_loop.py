@@ -14,10 +14,10 @@ class PDController:
     kp: float
     kd: float
 
-    def __call__(self, state, target_position_rad):
+    def __call__(self, state, target_position_rad, *, target_velocity_rad_s=0.0):
         result = pd_control(target_position=target_position_rad, position=state.position_rad,
                             velocity=state.velocity_rad_s, kp=self.kp, kd=self.kd,
-                            torque_limit=TORQUE_LIMIT_NM)
+                            torque_limit=TORQUE_LIMIT_NM, target_velocity=target_velocity_rad_s)
         return ControlDecision(result.raw_torque)
 
 
@@ -36,8 +36,12 @@ class IntegralFeedbackController:
         if self.integral_gain < 0 or not 0 <= self.integral_limit_nm <= TORQUE_LIMIT_NM:
             raise ValueError("integral gain and torque limit must be nonnegative and the limit must fit the actuator")
 
-    def __call__(self, state, target_position_rad):
-        base = self.pd(state, target_position_rad).requested_torque_nm
+    @property
+    def integral_torque_nm(self):
+        return self._integral_torque_nm
+
+    def __call__(self, state, target_position_rad, *, target_velocity_rad_s=0.0):
+        base = self.pd(state, target_position_rad, target_velocity_rad_s=target_velocity_rad_s).requested_torque_nm
         error = float(target_position_rad) - float(state.position_rad)
         old_torque = self._integral_torque_nm
         limit = self.integral_limit_nm
