@@ -27,6 +27,8 @@ class EpisodeMetrics:
     decision_time_p99_ms: float | None
     action_ready_time_p50_ms: float | None
     action_ready_time_p99_ms: float | None
+    candidate_slots: int
+    rejected_candidates: int
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,8 @@ def summarize_episode(episode: EpisodeRecord, *, position_tolerance_rad: float,
         decision_time_p50_ms=_quantile(times, .5), decision_time_p99_ms=_quantile(times, .99),
         action_ready_time_p50_ms=_quantile(action_ready_times, .5),
         action_ready_time_p99_ms=_quantile(action_ready_times, .99),
+        candidate_slots=sum(s.candidate_slots for s in steps),
+        rejected_candidates=sum(s.rejected_candidates for s in steps),
     )
 
 

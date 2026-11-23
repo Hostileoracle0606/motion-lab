@@ -33,6 +33,15 @@ def score_candidates(
     target_position_rad: float, weights: CostWeights, candidates_nm: np.ndarray,
 ) -> PlanResult:
     """Evaluate every candidate, rejecting invalid predicted trajectories."""
+    result, _ = _score_batch(predictor, context, state, target_position_rad, weights, candidates_nm)
+    return result
+
+
+def _score_batch(
+    predictor: Predictor, context: DynamicsContext, state: DynamicsState,
+    target_position_rad: float, weights: CostWeights, candidates_nm: np.ndarray,
+) -> tuple[PlanResult, list[tuple[int, float]]]:
+    """Return the public result and feasible candidate indices and costs."""
     validate_prediction_inputs(state, 0.0, context)
     validate_finite_scalar("target_position_rad", target_position_rad)
     if abs(state.position_rad) > POSITION_LIMIT_RAD or abs(target_position_rad) > POSITION_LIMIT_RAD:
@@ -51,7 +60,8 @@ def score_candidates(
     best_actions = None
     best_cost = None
     feasible = calls = 0
-    for candidate in candidates:
+    ranked_candidates = []
+    for index, candidate in enumerate(candidates):
         current = state
         cost = 0.0
         for torque in candidate:
@@ -80,10 +90,11 @@ def score_candidates(
             except OverflowError:
                 continue
             feasible += 1
+            ranked_candidates.append((index, cost))
             if best_cost is None or cost < best_cost:
                 best_cost = cost
                 best_actions = tuple(float(torque) for torque in candidate)
-    return PlanResult(best_actions, best_cost, len(candidates), feasible, calls)
+    return PlanResult(best_actions, best_cost, len(candidates), feasible, calls), ranked_candidates
 
 
 def plan(

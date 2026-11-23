@@ -90,3 +90,24 @@ def test_recorded_pilot_preserves_completed_episode_on_abort(tmp_path, monkeypat
     assert records[0]["episode"]["controller_id"] == "pd"
     assert len(records[0]["episode"]["steps"]) == 2
     assert not (output / "metrics.json").exists()
+
+
+def test_optional_cem_comparison_matches_candidate_budgets(tmp_path):
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 3
+    config["mpc"]["horizon"] = 2
+    config["mpc"]["candidate_count"] = 6
+    config["mpc"]["cem"] = {"iterations": 2, "elite_count": 2, "min_std_nm": 0.25}
+    config["scenarios"] = config["scenarios"][:1]
+    output = tmp_path / "comparison"
+    assert pilot.run_recorded_pilot(output, config, MODEL, {}) == 3
+    records = json.loads((output / "episodes.json").read_text())["episodes"]
+    assert [record["controller_id"] for record in records] == ["pd", "rk4_mpc", "rk4_cem"]
+    assert records[1]["scenario"] == records[2]["scenario"]
+    assert records[1]["seed"] == records[2]["seed"]
+    for record in records[1:]:
+        assert [step["candidate_slots"] for step in record["steps"]] == [6, 6, 6]
+        assert sum(step["predictor_calls"] for step in record["steps"]) == 36
+    cohorts = json.loads((output / "metrics.json").read_text())["cohorts"]
+    assert [cohort["episodes"][0]["candidate_slots"] for cohort in cohorts] == [0, 18, 18]
+    assert [cohort["episodes"][0]["rejected_candidates"] for cohort in cohorts] == [0, 0, 0]

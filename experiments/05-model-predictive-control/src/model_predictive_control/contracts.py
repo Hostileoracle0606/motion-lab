@@ -36,6 +36,8 @@ class ControlDecision:
 
     requested_torque_nm: float | None
     predictor_calls: int = 0
+    candidate_slots: int = 0
+    rejected_candidates: int = 0
 
 
 class Controller(Protocol):
@@ -79,6 +81,8 @@ class StepRecord:
     saturated: bool
     selected_torque_nm: float | None = None
     action_ready_time_ns: int | None = None
+    candidate_slots: int = 0
+    rejected_candidates: int = 0
 
 
 @dataclass(frozen=True)

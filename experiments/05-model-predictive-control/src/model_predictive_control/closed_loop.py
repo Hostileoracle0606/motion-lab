@@ -52,6 +52,8 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
         reason = ("deadline" if missed else "no_plan" if request is None else
                   "invalid_command" if not valid else None)
         calls = decision.predictor_calls
+        slots = decision.candidate_slots
+        rejected = decision.rejected_candidates
         selected = recorded
         action_ready = elapsed
         if reason is not None:
@@ -62,14 +64,21 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
             if not isinstance(fallback_decision, ControlDecision):
                 raise ValueError("fallback must provide a decision with finite torque")
             calls += fallback_decision.predictor_calls
+            slots += fallback_decision.candidate_slots
+            rejected += fallback_decision.rejected_candidates
             if not _valid_request(fallback_decision.requested_torque_nm):
                 raise ValueError("fallback must provide a finite torque")
             selected = float(fallback_decision.requested_torque_nm)
         applied = max(-TORQUE_LIMIT_NM, min(TORQUE_LIMIT_NM, selected))
         plant_step = plant.advance(applied)
-        steps.append(StepRecord(state, plant_step.next_state, recorded, applied,
-                                plant_step.physics_steps, elapsed, calls, missed,
-                                reason, applied != selected, selected, action_ready))
+        steps.append(StepRecord(
+            state=state, next_state=plant_step.next_state, requested_torque_nm=recorded,
+            applied_torque_nm=applied, physics_steps=plant_step.physics_steps,
+            decision_time_ns=elapsed, predictor_calls=calls, deadline_missed=missed,
+            fallback_reason=reason, saturated=applied != selected,
+            selected_torque_nm=selected, action_ready_time_ns=action_ready,
+            candidate_slots=slots, rejected_candidates=rejected,
+        ))
         if plant_step.termination is not None:
             termination = plant_step.termination
             break
