@@ -38,7 +38,8 @@ def test_joint_violation_stops_early():
     step = plant.advance(0)
     assert step.termination == 'joint_limit' and step.physics_steps < 5
 
-def test_unstable_velocity_cannot_silently_reset_to_success():
+def test_unstable_velocity_cannot_silently_reset_to_success(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     plant = MujocoPlant(XML)
     plant.reset(DynamicsState(0, 1e200))
     step = plant.advance(0)
