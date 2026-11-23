@@ -63,7 +63,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--feedback-proposal", action="store_true")
+    parser.add_argument("--learned-checkpoint", type=Path)
     args = parser.parse_args()
+    if args.learned_checkpoint is not None and not args.feedback_proposal:
+        parser.error("--learned-checkpoint requires --feedback-proposal")
     if git_output("status", "--porcelain"):
         parser.error("commit the experiment source before recording results")
     base, base_digest = configuration(BASE)
@@ -74,6 +77,13 @@ def main():
     predictor = AnalyticalRK4Predictor(
         expected_plant_parameters(NOMINAL_CONTEXT.environment_version), PHYSICS_INTERVAL_S,
     )
+    feedback_predictor = predictor
+    checkpoint_identity = None
+    if args.learned_checkpoint is not None:
+        from model_predictive_control.predictor_comparison import load_comparators
+
+        comparators, checkpoint_identity = load_comparators(MODEL, args.learned_checkpoint)
+        feedback_predictor = comparators["learned_mpc"]
     pd = PDController(**base["pd"])
     weights = CostWeights(**base["mpc"]["weights"])
     tolerances = base["metrics"]
@@ -84,6 +94,8 @@ def main():
         "base_config_sha256": base_digest, "protocol_sha256": protocol_digest,
         "base_config": base, "protocol": protocol, "predictor_context": asdict(NOMINAL_CONTEXT),
         "predictor_id": predictor.predictor_id,
+        "feedback_predictor_id": feedback_predictor.predictor_id,
+        "checkpoint": checkpoint_identity,
         "truth_sha256": {"nominal": nominal.model_sha256, "mild_friction": friction.model_sha256},
         "cpu_model": cpu_model(), "platform": platform.platform(),
     }
@@ -98,15 +110,17 @@ def main():
             base["steps"],
         )
         name = "pd" if weight is None else ("feedback-proposal" if use_feedback else f"terminal-speed-{weight:g}")
+        active_predictor = feedback_predictor if use_feedback else predictor
         controller = pd if weight is None else planning_controller(
-            plan, predictor, replace(weights, terminal_velocity=weight), base["mpc"], seed,
+            plan, active_predictor, replace(weights, terminal_velocity=weight), base["mpc"], seed,
             {"feedback": pd} if use_feedback else {},
         )
         record = run_episode(
             plant, scenario, controller, controller_id=name, seed=seed, fallback=pd,
         )
         metadata = {"stage": stage, "condition": condition, "terminal_velocity_weight": weight,
-                    "feedback_proposal": use_feedback}
+                    "feedback_proposal": use_feedback,
+                    "predictor_id": active_predictor.predictor_id if weight is not None else None}
         with (args.output / "episodes.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({**metadata, "episode": asdict(record)}, allow_nan=False) + "\n")
         return {

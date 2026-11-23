@@ -40,3 +40,14 @@ Use the six separate `feedback_confirmation` starts across nominal and
 mild-friction truth. Compare uniform shooting, shooting with one feedback
 proposal, and standalone PD. Use the same +2-hold and no new truth failure
 criterion. Record the tracking, effort, and per-decision timing tradeoffs.
+
+## Paired predictor probe after proposal improvement
+
+The analytical feedback-proposal arm held in 12/12 development cases.
+On those same cases, substitute the previously published canonical
+learned checkpoint for RK4 in the feedback-proposal arm. Keep the scoring
+weights, sampler, gains, truth conditions and work ceiling fixed. Repeat
+the standalone PD and uniform analytical arms for a reference and match
+their non-timing fields against the preceding run. This is a paired
+diagnostic on the development cases used to try the planner, with the
+checkpoint selected by the existing published identity.
