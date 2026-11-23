@@ -18,6 +18,7 @@ class MujocoPlant:
         if mujoco.__version__ != MUJOCO_VERSION:
             raise ValueError("unsupported MuJoCo version")
         self._model = mujoco.MjModel.from_xml_string(content.decode("utf-8"))
+        self._model.opt.disableflags |= int(mujoco.mjtDisableBit.mjDSBL_AUTORESET)
         if (self._model.nq, self._model.nv, self._model.nu, self._model.na) != (1, 1, 1, 0):
             raise ValueError("unsupported model state dimensions")
         if self._model.opt.timestep != PHYSICS_INTERVAL_S:
@@ -40,9 +41,14 @@ class MujocoPlant:
             raise ValueError("applied_torque_nm exceeds torque limit")
         self._data.ctrl[0] = float(applied_torque_nm)
         for count in range(1, 6):
+            warnings = (mujoco.mjtWarning.mjWARN_BADQPOS,
+                        mujoco.mjtWarning.mjWARN_BADQVEL,
+                        mujoco.mjtWarning.mjWARN_BADQACC)
+            before = tuple(self._data.warning[w].number for w in warnings)
             mujoco.mj_step(self._model, self._data)
             position, velocity = float(self._data.qpos[0]), float(self._data.qvel[0])
-            if not math.isfinite(position) or not math.isfinite(velocity):
+            if (not math.isfinite(position) or not math.isfinite(velocity) or
+                    any(self._data.warning[w].number != n for w, n in zip(warnings, before))):
                 return PlantStep(None, count, "invalid_state")
             state = DynamicsState(position, velocity)
             if abs(position) > POSITION_LIMIT_RAD:
