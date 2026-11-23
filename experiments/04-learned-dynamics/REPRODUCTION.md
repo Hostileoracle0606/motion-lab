@@ -57,6 +57,23 @@ belongs to the later publication branch.
    as input and a fresh output directory. Keep the training, evaluation and
    benchmark directories beside that study directory.
 
+To recompute the validation deltas, use this branch's
+[`compare_retraining.py`](scripts/compare_retraining.py) from the
+original-source checkout and its locked environment. `PUBLISHED_CHECKOUT` and
+`REPRODUCTION_CHECKOUT` are the absolute paths to the published-evidence
+checkout and this reproduction-documentation checkout, respectively.
+
+```bash
+experiment=experiments/04-learned-dynamics
+uv run --frozen python "$REPRODUCTION_CHECKOUT/$experiment/scripts/compare_retraining.py" \
+  --original "$PUBLISHED_CHECKOUT/$experiment/results/training-v1" \
+  --retrained "$experiment/results/training-v1" \
+  --config "$experiment/configs/training-v1.toml"
+```
+
+The comparator loads the matched checkpoints on their recorded device and
+reports position and velocity MAE separately across matched validation starts.
+
 ## Comparison results
 
 - **Retraining.** Both rosters succeeded on all 45 declared runs, including
@@ -86,7 +103,11 @@ belongs to the later publication branch.
 The [machine-readable comparison](reproduction-v1.json) records the checked
 counts, outcome deltas and file digests. Compare the SHA-256 of a regenerated
 `evaluation-v1/records.jsonl` and `evaluation-v1/manifest.json` to the
-values in that file. The release provides the full comparison inputs.
+values in that file. The release provides the original checkpoints, raw
+records and report for comparison. The commands above regenerate the
+independent run. Its run-specific timing, manifests and regenerated report
+are retained locally. [Issue #30](https://github.com/Hostileoracle0606/motion-lab/issues/30)
+tracks publication of a checksummed selection of those new artifacts.
 
 ## Evidence boundary
 
