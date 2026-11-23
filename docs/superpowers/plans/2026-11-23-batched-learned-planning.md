@@ -12,14 +12,14 @@ retry its lanes independently and count the extra attempted predictions.
 
 - [x] Add failing planner tests for recurrence, independent lane rejection,
   and batch-error recovery. Implement and run the focused suite.
-- [ ] Record paired scalar and batch fixed-work runs on all 12 prior
+- [x] Record paired scalar and batch fixed-work runs on all 12 prior
   development scenarios. For the same 12 scenarios, enforce the 10 ms
   discard threshold in the batched arm and report fallback counts. Run
   standalone feedback as a reference and rotate the arm order by case.
-- [ ] Record elapsed p50 and p99, decisions over 10 ms, successful holds,
+- [x] Record elapsed p50 and p99, decisions over 10 ms, successful holds,
   actual prediction counts, and fixed-work action agreement. Include
   source, checkpoint, run order and artifact hashes.
-- [ ] Verify the ordinary command and review code and evidence before
+- [x] Verify the ordinary command and review code and evidence before
   reporting the development result.
 
 The candidate is useful on this roster if it preserves the fixed-work hold
