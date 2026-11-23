@@ -1,0 +1,60 @@
+schema_version = 1
+purpose = "held_out"
+steps = 300
+deadline_ns = 10000000
+fixed_work_repeats = 2
+deadline_repeats = 1
+
+[pd]
+kp = 2.0
+kd = 1.3
+
+[mpc]
+optimizer = "random_shooting"
+horizon = 30
+candidate_count = 16
+
+[mpc.weights]
+position = 1.0
+velocity = 0.10
+effort = 0.002
+terminal_position = 20.0
+
+[metrics]
+position_tolerance_rad = 0.05
+velocity_tolerance_rad_s = 0.10
+hold_steps = 25
+
+[acceptance]
+hold_noninferiority_percentage_points = 5
+nominal_truth_failures_max = 0
+action_ready_p99_ms_max = 10
+minimum_paired_improvement_percent = 10
+minimum_joint_success_pairs = 10
+
+[roster]
+generation_seed = 17409
+seeds = [74000, 74001, 74002, 74003, 74004, 74005, 74006, 74007, 74008, 74009, 74010, 74011, 74012, 74013, 74014, 74015, 74016, 74017, 74018, 74019]
+initial_position_magnitude_rad = [0.25, 0.85]
+initial_velocity_rad_s = [-0.35, 0.35]
+target_position_magnitude_rad = [0.45, 0.80]
+
+[[conditions]]
+id = "nominal"
+link_mass_kg = 1.0
+frictionloss_nm = 0.0
+
+[[conditions]]
+id = "heavier"
+link_mass_kg = 1.35
+frictionloss_nm = 0.0
+
+[[conditions]]
+id = "friction"
+link_mass_kg = 1.0
+frictionloss_nm = 0.12
+
+[[conditions]]
+id = "combined"
+link_mass_kg = 1.35
+frictionloss_nm = 0.12
