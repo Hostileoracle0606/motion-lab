@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from dataclasses import asdict
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -12,6 +13,7 @@ import numpy as np
 from forward_dynamics.analytical import AnalyticalRK4Predictor
 from forward_dynamics.plant import expected_plant_parameters
 from forward_dynamics.types import DynamicsState
+from model_predictive_control.attempts import audit_run, identity, record_started, write_roster
 from model_predictive_control.cem import plan_cem
 from model_predictive_control.closed_loop import PDController, run_episode
 from model_predictive_control.contracts import (
@@ -29,7 +31,7 @@ def run_pilot(
 
 
 def _iter_pilot(
-    config: dict, model_path: Path, *, deadline_ns: int | None,
+    config: dict, model_path: Path, *, deadline_ns: int | None, on_start=None,
 ) -> Iterator[EpisodeRecord]:
     """Run configured controllers from the same reset and scenario seed."""
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
@@ -57,6 +59,8 @@ def _iter_pilot(
             cem = _planning_controller(plan_cem, predictor, weights, mpc, seed, mpc["cem"])
             controllers.append(("rk4_cem", cem))
         for controller_id, controller in controllers:
+            if on_start is not None:
+                on_start(identity(scenario.scenario_id, controller_id, seed))
             yield run_episode(
                 plant, scenario, controller, controller_id=controller_id, seed=seed,
                 fallback=pd, deadline_ns=deadline_ns,
@@ -99,13 +103,25 @@ def run_recorded_pilot(
     records = []
     try:
         _write_json(output / "manifest.json", manifest)
-        for record in _iter_pilot(config, model_path, deadline_ns=deadline_ns):
+        roster = [identity(setup["scenario_id"], controller_id, setup["seed"])
+                  for setup in config["scenarios"] for controller_id in _controller_ids(config)]
+        write_roster(output, roster)
+        for record in _iter_pilot(config, model_path, deadline_ns=deadline_ns,
+                                  on_start=lambda attempt: record_started(output, attempt)):
             entry = {"schema_version": 1, "episode": asdict(record)}
             line = json.dumps(entry, allow_nan=False) + "\n"
             with (output / "completed-episodes.jsonl").open("a", encoding="utf-8") as journal:
                 journal.write(line)
             records.append(record)
-        _write_results(output, config, tuple(records))
+        audit = audit_run(output, require_complete=False)
+        if (audit["errors"] or any(audit["truncated"].values())
+                or audit["started"] != audit["planned"] or audit["completed"] != audit["planned"]):
+            raise ValueError(f"incomplete attempt evidence: {audit}")
+        with TemporaryDirectory(prefix=".results-", dir=output) as staged:
+            staged_path = Path(staged)
+            _write_results(staged_path, config, tuple(records))
+            for name in ("episodes.json", "metrics.json", "paired.png"):
+                (staged_path / name).replace(output / name)
     except BaseException as error:
         try:
             _replace_status(status_path, {

@@ -75,3 +75,31 @@ records candidate slots, rejected sequences and actual predictor calls for
 each decision. A rejected sequence can consume fewer than 30 calls.
 See the [development comparison](results/optimizer-comparison-v1.md) for
 the paired outcomes and optimizer decision.
+
+## Attempt accounting and recovery
+
+Before simulation, `planned-attempts.json` records the ordered scenario,
+controller and seed roster. `started-attempts.jsonl` records each attempt
+immediately before its episode begins; `completed-episodes.jsonl` contains
+only episodes returned by the runner. An unexpected error discards transitions
+from the current episode, preserves its started identity, and propagates the
+original error. All planned attempts remain in the denominator; an interrupted
+or unstarted attempt is not a successful episode or a completed trajectory.
+
+Audit final evidence with:
+
+```sh
+uv run --locked python experiments/05-model-predictive-control/scripts/audit_attempts.py /path/to/run
+```
+
+The command exits unsuccessfully unless status, counts, ordered identities and
+journals all establish completion. Always require a passing strict audit before
+using result files: an abrupt stop while files are being published can leave
+some files in an incomplete run. Add `--forensic` to inspect incomplete
+runs, including interrupted and missing identities and validation errors. A
+last journal row without a newline is omitted from forensic counts and flagged
+as truncated, even if its JSON parses; it cannot support final evidence. Keep
+the original folder for investigation and run again in a fresh output folder;
+do not append to or silently repair a partial run. Completed records remain
+available for inspection, and incomplete runs cannot be accepted as final evidence.
+The held-out protocol must cite this policy before the study starts.
