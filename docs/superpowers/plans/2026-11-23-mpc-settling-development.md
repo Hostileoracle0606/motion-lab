@@ -21,9 +21,9 @@ improves sustained holds.
   zero additional truth failures. Report the paired outcomes per
   condition, the best eligible setting even if none passes, and the
   commanded effort and latency alongside holds.
-- Keep the original Phase 5 protocol and evidence frozen. This follows
-  the owner's decision to defer the clean-checkout reproduction and
-  prioritize development. The results support development decisions.
+- Preserve the frozen Phase 5 protocol and primary evidence. The owner
+  chose to skip the clean-checkout reproduction and prioritize
+  development. This experiment supports development decisions.
 
 ## Follow-up after the terminal speed experiment
 
