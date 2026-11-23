@@ -39,5 +39,5 @@ If the learned result falls short, compare forecasts over recorded
 actions near reversals to guide a targeted next modeling change.
 
 - [x] Verify preview state isolation and the correction guard.
-- [ ] Lock the experiment and run the fixed and moving comparisons.
-- [ ] Audit records and document the outcome.
+- [x] Lock the experiment and run the fixed and moving comparisons.
+- [x] Audit records and document the outcome.
