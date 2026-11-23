@@ -93,7 +93,9 @@ uv run --locked python experiments/05-model-predictive-control/scripts/audit_att
 ```
 
 The command exits unsuccessfully unless status, counts, ordered identities and
-journals all establish completion. Add `--forensic` to inspect incomplete
+journals all establish completion. Always require a passing strict audit before
+using result files: an abrupt stop while files are being published can leave
+some files in an incomplete run. Add `--forensic` to inspect incomplete
 runs, including interrupted and missing identities and validation errors. A
 last journal row without a newline is omitted from forensic counts and flagged
 as truncated, even if its JSON parses; it cannot support final evidence. Keep

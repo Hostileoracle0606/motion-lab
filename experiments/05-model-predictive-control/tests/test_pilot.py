@@ -172,3 +172,28 @@ def test_incomplete_attempt_journal_cannot_publish_summary(tmp_path, monkeypatch
         pilot.run_recorded_pilot(output, config, MODEL, {})
     assert not (output / "metrics.json").exists()
     assert json.loads((output / "run-status.json").read_text())["status"] == "aborted"
+
+
+def test_plot_failure_keeps_attempt_evidence_without_publishing_results(tmp_path, monkeypatch):
+    from model_predictive_control.attempts import audit_run
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 1
+    config["mpc"]["horizon"] = config["mpc"]["candidate_count"] = 1
+    config["scenarios"] = config["scenarios"][:1]
+    failure = RuntimeError("plot failed")
+
+    def fail_plot(*args):
+        raise failure
+
+    monkeypatch.setattr(pilot, "_plot_pairs", fail_plot)
+    output = tmp_path / "run"
+    with pytest.raises(RuntimeError) as raised:
+        pilot.run_recorded_pilot(output, config, MODEL, {})
+    assert raised.value is failure
+    audit = audit_run(output, require_complete=False)
+    assert audit["status"] == "aborted"
+    assert len(audit["planned"]) == len(audit["started"]) == len(audit["completed"]) == 2
+    assert not (output / "episodes.json").exists()
+    assert not (output / "metrics.json").exists()
+    with pytest.raises(ValueError):
+        audit_run(output)

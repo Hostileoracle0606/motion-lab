@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from dataclasses import asdict
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -116,7 +117,11 @@ def run_recorded_pilot(
         if (audit["errors"] or any(audit["truncated"].values())
                 or audit["started"] != audit["planned"] or audit["completed"] != audit["planned"]):
             raise ValueError(f"incomplete attempt evidence: {audit}")
-        _write_results(output, config, tuple(records))
+        with TemporaryDirectory(prefix=".results-", dir=output) as staged:
+            staged_path = Path(staged)
+            _write_results(staged_path, config, tuple(records))
+            for name in ("episodes.json", "metrics.json", "paired.png"):
+                (staged_path / name).replace(output / name)
     except BaseException as error:
         try:
             _replace_status(status_path, {
