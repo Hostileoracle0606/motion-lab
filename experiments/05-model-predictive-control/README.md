@@ -73,3 +73,5 @@ Each optimizer begins with a separate generator seeded with the paired
 case's seed. Both use 30 model steps per valid candidate. The raw evidence
 records candidate slots, rejected sequences and actual predictor calls for
 each decision. A rejected sequence can consume fewer than 30 calls.
+See the [development comparison](results/optimizer-comparison-v1.md) for
+the paired outcomes and optimizer decision.
