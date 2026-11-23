@@ -33,6 +33,6 @@ inspect their forecasts from identical recorded PD states and applied
 torques before suggesting model changes.
 
 - [x] Write the source and predeclare the two disjoint sets of cases.
-- [ ] Run the primary roster and audit the raw records.
-- [ ] Apply the result-dependent diagnostic or confirmation and record the
+- [x] Run the primary roster and audit the raw records.
+- [x] Apply the result-dependent diagnostic or confirmation and record the
   result with source, checkpoint, scope, and checksums.
