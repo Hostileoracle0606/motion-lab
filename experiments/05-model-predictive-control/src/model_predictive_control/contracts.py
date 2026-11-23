@@ -77,6 +77,7 @@ class StepRecord:
     deadline_missed: bool
     fallback_reason: FallbackReason | None
     saturated: bool
+    selected_torque_nm: float | None = None
 
 
 @dataclass(frozen=True)

@@ -57,3 +57,13 @@ def test_truth_termination_precedes_time_limit():
 
 def test_pd_returns_raw_torque():
     assert PDController(10, 2)(DynamicsState(0, 0.5), 1).requested_torque_nm == 9
+
+def test_selected_torque_preserves_clipped_fallback():
+    result = run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(None), controller_id='c', seed=0, fallback=lambda s,t: ControlDecision(-4))
+    assert result.steps[0].selected_torque_nm == -4
+    assert result.steps[0].applied_torque_nm == -3
+
+
+def test_missing_fallback_decision_is_configuration_error():
+    with pytest.raises(ValueError, match='fallback'):
+        run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(None), controller_id='c', seed=0, fallback=lambda s,t: None)

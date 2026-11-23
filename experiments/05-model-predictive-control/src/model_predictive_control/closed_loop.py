@@ -54,6 +54,8 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
             if fallback is None:
                 raise ValueError("fallback must provide a finite torque")
             fallback_decision = fallback(state, scenario.target_position_rad)
+            if not isinstance(fallback_decision, ControlDecision):
+                raise ValueError("fallback must provide a decision with finite torque")
             calls += fallback_decision.predictor_calls
             if not _valid_request(fallback_decision.requested_torque_nm):
                 raise ValueError("fallback must provide a finite torque")
@@ -62,7 +64,7 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
         plant_step = plant.advance(applied)
         steps.append(StepRecord(state, plant_step.next_state, recorded, applied,
                                 plant_step.physics_steps, elapsed, calls, missed,
-                                reason, applied != selected))
+                                reason, applied != selected, selected))
         if plant_step.termination is not None:
             termination = plant_step.termination
             break
