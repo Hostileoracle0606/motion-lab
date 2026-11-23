@@ -1,0 +1,33 @@
+minimum_timely_action_fraction = 0.99
+hold_margin_percentage_points = 5
+bootstrap_seed = 17670
+bootstrap_draws = 20000
+
+[calibration]
+generation_seed = 17671
+first_seed = 74600
+case_count = 12
+friction_nm = [0.0, 0.09, 0.12, 0.15]
+integral_gains = [0.1, 0.25, 0.5, 1.0, 2.0]
+integral_limits_nm = [0.12, 0.24, 0.36]
+
+[[evaluation]]
+id = "friction_low"
+frictionloss_nm = 0.10
+generation_seed = 17672
+first_seed = 74700
+case_count = 40
+
+[[evaluation]]
+id = "friction_anchor"
+frictionloss_nm = 0.12
+generation_seed = 17673
+first_seed = 74800
+case_count = 100
+
+[[evaluation]]
+id = "friction_high"
+frictionloss_nm = 0.16
+generation_seed = 17674
+first_seed = 75000
+case_count = 40
