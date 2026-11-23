@@ -77,7 +77,7 @@ interfaces, assumptions, commands, and evidence must remain documented.
 | [01 — Feedback control](experiments/01-feedback-control/README.md) | Complete; clean-checkout reproduction and simulated evidence published |
 | [02 — State-transition data](experiments/02-state-transition-dataset/README.md) | Complete; schema-v1 dataset reproduced byte-for-byte from its clean builder commit |
 | [03 — Forward dynamics](experiments/03-forward-dynamics/README.md) | Complete; six-adapter simulated comparison reproduced from its clean evaluator commit |
-| [04 — Learned dynamics](experiments/04-learned-dynamics/README.md) | Frozen simulation study published and independently reproduced on the same host |
+| [04 — Learned dynamics](experiments/04-learned-dynamics/README.md) | Complete for the frozen simulation scope. Original and independent same-host evidence published. |
 | 05 — Model predictive control | Planned |
 | 06 — Visual and latent prediction | Planned |
 | 07 — Temporal hierarchy | Planned |

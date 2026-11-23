@@ -105,9 +105,77 @@ counts, outcome deltas and file digests. Compare the SHA-256 of a regenerated
 `evaluation-v1/records.jsonl` and `evaluation-v1/manifest.json` to the
 values in that file. The release provides the original checkpoints, raw
 records and report for comparison. The commands above regenerate the
-independent run. Its run-specific timing, manifests and regenerated report
-are retained locally. [Issue #30](https://github.com/Hostileoracle0606/motion-lab/issues/30)
-tracks publication of a checksummed selection of those new artifacts.
+independent run. The checksummed selection below makes its distinct evidence
+retrievable for [Issue #30](https://github.com/Hostileoracle0606/motion-lab/issues/30).
+
+## Retrieve the independent rerun
+
+The [independent rerun release](https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-reproduction-v1)
+contains 253 payload files, including the 45 run curves and checkpoint bundles,
+the raw timing bundle, validation and final-test manifests, the regenerated
+report, and comparison records. The archive is 1,921,890 bytes with SHA-256
+`b8dc85ca329159a3c1871054349a4eb2e7877f3d4e6a8bdbe3508d780bf21c03`.
+
+The five frozen evaluation files matched the original release byte-for-byte.
+`selection.json` lists the digests for reusing those files from that release.
+For public portability, the published report provenance replaces two
+machine-local command paths with repository-relative paths. The selection
+records the original report manifest and provenance hashes. The other report
+files are unchanged.
+
+First verify and unpack the original archive using the
+[experiment README](README.md#download-and-audit-the-published-study).
+Set `PUBLISHED_CHECKOUT` to the absolute path of that checkout. From any
+Motion Lab clone, use `curl`, `shasum`, `tar`, `jq` and `uv` to
+verify and assemble the rerun in a fresh checkout:
+
+```bash
+release_url=https://github.com/Hostileoracle0606/motion-lab/releases/download/experiment-04-reproduction-v1
+archive=motion-lab-experiment-04-reproduction-v1.tar.gz
+download_dir=$(mktemp -d)
+curl -fL "$release_url/$archive" -o "$download_dir/$archive"
+curl -fL "$release_url/SHA256SUMS" -o "$download_dir/SHA256SUMS"
+(
+  cd "$download_dir" &&
+  shasum -a 256 -c SHA256SUMS &&
+  printf '%s  %s\n' b8dc85ca329159a3c1871054349a4eb2e7877f3d4e6a8bdbe3508d780bf21c03 "$archive" |
+    shasum -a 256 -c - &&
+  tar -xzf "$archive" &&
+  shasum -a 256 -c EVIDENCE-SHA256SUMS
+)
+```
+
+After the checksums pass, verify the five matched files, assemble the
+rerun and regenerate the report:
+
+```bash
+(
+  set -e
+  set -o pipefail
+  experiment=experiments/04-learned-dynamics
+  published_eval="$PUBLISHED_CHECKOUT/$experiment/results/evaluation-v1"
+  jq -r '.byte_identical_omitted_evaluation_v1_files | to_entries[] | "\(.value)  \(.key)"' \
+    "$download_dir/selection.json" |
+    (cd "$published_eval" && shasum -a 256 -c -)
+  git worktree add --detach ../motion-lab-rerun-audit 8fb57a75590724e19a5986c8855088242276393f
+  cd ../motion-lab-rerun-audit
+  uv sync --locked
+  test ! -e "$experiment/results"
+  mkdir "$experiment/results"
+  cp -R "$download_dir/results/." "$experiment/results/"
+  cp -R "$published_eval" "$experiment/results/"
+  uv run --frozen python "$experiment/scripts/generate_report.py" \
+    --input "$experiment/results/study-v1" --output "$experiment/results/report-rebuilt"
+  for published_file in "$experiment/results/report-v1/"*; do
+    cmp "$published_file" "$experiment/results/report-rebuilt/${published_file##*/}"
+  done
+)
+```
+
+In a clean checkout of `8fb57a7`, the public download passed all 253 inventory
+checks, and the five referenced evaluation files matched their digests.
+The assembled evidence rebuilt all 14 published report files and the report
+manifest byte-for-byte.
 
 ## Evidence boundary
 

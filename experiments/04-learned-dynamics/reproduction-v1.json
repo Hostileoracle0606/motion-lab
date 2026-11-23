@@ -27,6 +27,21 @@
     "archive_sha256": "f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a",
     "archive_members_verified": 252
   },
+  "independent_release": {
+    "tag": "experiment-04-reproduction-v1",
+    "archive": "motion-lab-experiment-04-reproduction-v1.tar.gz",
+    "download_url": "https://github.com/Hostileoracle0606/motion-lab/releases/download/experiment-04-reproduction-v1/motion-lab-experiment-04-reproduction-v1.tar.gz",
+    "archive_bytes": 1921890,
+    "archive_sha256": "b8dc85ca329159a3c1871054349a4eb2e7877f3d4e6a8bdbe3508d780bf21c03",
+    "payload_files": 253,
+    "inventory_sha256": "e3b2f9520f9d4c5eac06d9a61488d9feea7045229b12ccdbc893be26794fab38",
+    "selection_sha256": "4cd3ff8c876a3f85a27b936699eb1a180baf56b69b8f1d9e918cbc3274fed4b6",
+    "portable_report_manifest_sha256": "66c6718dde8301d7edb2a5dad9ceac433e92385ddb039decee90f88f4d03cae7",
+    "reused_byte_identical_evaluation_files": 5,
+    "downloaded_payload_files_verified": 253,
+    "downloaded_report_rebuild_matching_files": 14,
+    "downloaded_report_rebuild_manifest_matched": true
+  },
   "validation": {
     "planned_runs": 45,
     "runs_within_mae_tolerance": 45,

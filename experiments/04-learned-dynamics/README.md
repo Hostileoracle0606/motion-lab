@@ -421,8 +421,9 @@ The regenerated provenance records the new output path. The original
 evaluation preserves its dirty-worktree flag from the run with generated
 untracked outputs. The training roster records a clean source commit.
 The [independent reproduction record](REPRODUCTION.md) documents the 45-run
-retrain, recorded-device checkpoint replay, final-test and report comparisons.
-[Issue #30][reproduction] tracks Stage 4 closeout.
+retrain, recorded-device checkpoint replay, final test and report comparisons.
+It links the [independent rerun release](https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-reproduction-v1)
+and gives commands for assembling the complete evidence for [Issue #30][reproduction].
 
 [study-release]: https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-study-v1
 [reproduction]: https://github.com/Hostileoracle0606/motion-lab/issues/30

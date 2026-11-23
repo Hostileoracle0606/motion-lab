@@ -148,10 +148,11 @@ Candidate model families should begin with a small multilayer perceptron or resi
 - Results include variance across declared seeds.
 - Failure cases and out-of-distribution scenarios are shown.
 
-**Status:** The frozen one-link simulation study has been reproduced on the
-same arm64 macOS host. [Issue #30](https://github.com/Hostileoracle0606/motion-lab/issues/30)
-tracks Stage 4 closeout. The held-out scenario changes the trajectory
-conditions. Broader plant and observation shift testing is follow-up work.
+**Status:** Complete for the frozen one-link simulation scope. The study was
+independently reproduced on the same arm64 macOS host, and both evidence sets
+are checksummed and publicly retrievable. The held-out scenario changes the
+trajectory conditions. Broader plant and observation shift testing is
+follow-up work.
 
 ## Stage 5 — Model predictive control
 
