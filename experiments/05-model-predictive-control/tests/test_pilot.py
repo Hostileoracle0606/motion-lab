@@ -90,6 +90,14 @@ def test_recorded_pilot_preserves_completed_episode_on_abort(tmp_path, monkeypat
     assert records[0]["episode"]["controller_id"] == "pd"
     assert len(records[0]["episode"]["steps"]) == 2
     assert not (output / "metrics.json").exists()
+    from model_predictive_control.attempts import audit_run
+    audit = audit_run(output, require_complete=False)
+    assert len(audit["completed"]) == 1
+    assert audit["interrupted"] == [audit["planned"][1]]
+    assert audit["missing"] == []
+    assert audit["errors"] == []
+    with pytest.raises(ValueError):
+        audit_run(output)
 
 
 def test_optional_cem_comparison_matches_candidate_budgets(tmp_path):
@@ -111,3 +119,56 @@ def test_optional_cem_comparison_matches_candidate_budgets(tmp_path):
     cohorts = json.loads((output / "metrics.json").read_text())["cohorts"]
     assert [cohort["episodes"][0]["candidate_slots"] for cohort in cohorts] == [0, 18, 18]
     assert [cohort["episodes"][0]["rejected_candidates"] for cohort in cohorts] == [0, 0, 0]
+
+
+def test_attempt_audit_complete_and_truncated(tmp_path):
+    from model_predictive_control.attempts import audit_run
+
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 1
+    config["mpc"]["horizon"] = 1
+    config["mpc"]["candidate_count"] = 1
+    config["scenarios"] = config["scenarios"][:1]
+    output = tmp_path / "run"
+    pilot.run_recorded_pilot(output, config, MODEL, {})
+    audit = audit_run(output)
+    assert len(audit["planned"]) == len(audit["started"]) == len(audit["completed"]) == 2
+    assert audit["interrupted"] == audit["missing"] == []
+    journal = output / "completed-episodes.jsonl"
+    journal.write_bytes(journal.read_bytes()[:-1])
+    audit = audit_run(output, require_complete=False)
+    assert audit["truncated"]["completed"]
+    assert len(audit["interrupted"]) == 1
+    with pytest.raises(ValueError):
+        audit_run(output)
+
+
+def test_attempt_audit_rejects_duplicate_and_malformed_records(tmp_path):
+    from model_predictive_control.attempts import audit_run
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 1
+    config["mpc"]["horizon"] = config["mpc"]["candidate_count"] = 1
+    config["scenarios"] = config["scenarios"][:1]
+    output = tmp_path / "run"
+    pilot.run_recorded_pilot(output, config, MODEL, {})
+    journal = output / "started-attempts.jsonl"
+    first = journal.read_text().splitlines()[0]
+    journal.write_text(first + "\n" + first + "\n{}\n")
+    audit = audit_run(output, require_complete=False)
+    assert any("duplicate" in error for error in audit["errors"])
+    assert any("malformed" in error for error in audit["errors"])
+    with pytest.raises(ValueError):
+        audit_run(output)
+
+
+def test_incomplete_attempt_journal_cannot_publish_summary(tmp_path, monkeypatch):
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 1
+    config["mpc"]["horizon"] = config["mpc"]["candidate_count"] = 1
+    config["scenarios"] = config["scenarios"][:1]
+    monkeypatch.setattr(pilot, "record_started", lambda output, attempt: None)
+    output = tmp_path / "run"
+    with pytest.raises(ValueError, match="incomplete attempt evidence"):
+        pilot.run_recorded_pilot(output, config, MODEL, {})
+    assert not (output / "metrics.json").exists()
+    assert json.loads((output / "run-status.json").read_text())["status"] == "aborted"
