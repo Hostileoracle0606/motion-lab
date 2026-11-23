@@ -1,0 +1,10 @@
+minimum_extra_paired_holds = 3
+minimum_timely_plan_fraction = 0.99
+
+[primary]
+generation_seed = 17431
+seeds = [74200, 74201, 74202, 74203, 74204, 74205, 74206, 74207, 74208, 74209, 74210, 74211]
+
+[confirmation]
+generation_seed = 17432
+seeds = [74300, 74301, 74302, 74303, 74304, 74305, 74306, 74307, 74308, 74309, 74310, 74311]
