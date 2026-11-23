@@ -151,4 +151,12 @@ checkpoint and expands the roster without simulating any cases.
 Actual held-out execution requires `--frozen-manifest` pointing to the
 reviewed manifest and verifies its config, code objects, checkpoint and
 case roster before any episode begins.
+
+The frozen manifest lists the required runs `fixed-work-01`,
+`fixed-work-02`, and `deadline-discard-01`. Use `--mode` and
+`--repetition` to identify each run. Before computing the final comparison,
+pass all three output folders to `scripts/audit_predictor_comparison.py`
+with the same `--frozen-manifest`. The audit verifies that every declared
+run completed exactly once. Issue #48 owns the per-condition and paired
+report and the decisions against the locked gates.
 The held-out protocol must cite this policy before the study starts.

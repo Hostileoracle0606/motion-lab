@@ -13,7 +13,7 @@ import torch
 
 from forward_dynamics.provenance import git_output
 from model_predictive_control.predictor_comparison import (
-    execute_comparison, prepare_comparison, verify_frozen_manifest,
+    execute_comparison, prepare_comparison, run_identity, verify_frozen_manifest,
 )
 from model_predictive_control.provenance import cpu_model
 
@@ -22,11 +22,13 @@ EXPERIMENT = Path(__file__).resolve().parents[1]
 MODEL = EXPERIMENT.parent / "01-feedback-control/models/one_link.xml"
 IMPLEMENTATION_PATHS = (
     "pyproject.toml", "uv.lock",
-    "experiments/01-feedback-control/src", "experiments/03-forward-dynamics/src",
-    "experiments/02-state-transition-dataset/data/dataset-v1",
+    "experiments/01-feedback-control/src", "experiments/02-state-transition-dataset/src",
+    "experiments/02-state-transition-dataset/data/dataset-v1", "experiments/03-forward-dynamics/src",
     "experiments/04-learned-dynamics/src",
     "experiments/05-model-predictive-control/src",
     "experiments/05-model-predictive-control/scripts/run_predictor_comparison.py",
+    "experiments/05-model-predictive-control/scripts/audit_predictor_comparison.py",
+    "experiments/05-model-predictive-control/README.md",
 )
 
 
@@ -38,6 +40,7 @@ def main() -> None:
     parser.add_argument("--preflight", action="store_true", help="write the manifest without executing cases")
     parser.add_argument("--frozen-manifest", type=Path, help="required to run held-out cases")
     parser.add_argument("--mode", choices=("fixed-work", "deadline-discard"), default="fixed-work")
+    parser.add_argument("--repetition", type=int, default=1)
     args = parser.parse_args()
     if args.output.exists():
         parser.error("--output must be fresh")
@@ -65,12 +68,13 @@ def main() -> None:
         return
 
     deadline = config["deadline_ns"] if args.mode == "deadline-discard" else None
+    run_id = run_identity(config, args.mode, args.repetition)
     if args.frozen_manifest is not None:
         locked = args.frozen_manifest.read_bytes()
         verify_frozen_manifest(protocol, json.loads(locked))
         manifest["frozen_manifest_sha256"] = hashlib.sha256(locked).hexdigest()
     manifest.update({
-        "mode": args.mode, "deadline_ns": deadline,
+        "run_id": run_id, "mode": args.mode, "repetition": args.repetition, "deadline_ns": deadline,
         "platform": platform.platform(), "cpu_model": cpu_model(),
         "python": platform.python_version(), "mujoco": mujoco.__version__,
         "numpy": np.__version__, "torch": torch.__version__,
