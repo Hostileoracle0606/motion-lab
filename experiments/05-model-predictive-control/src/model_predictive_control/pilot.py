@@ -1,5 +1,6 @@
 """Run and report the paired, nominal one-link development pilot."""
 
+from collections.abc import Iterator
 from dataclasses import asdict
 import json
 from pathlib import Path
@@ -23,6 +24,12 @@ from model_predictive_control.plant import MujocoPlant
 def run_pilot(
     config: dict, model_path: Path, *, deadline_ns: int | None = None,
 ) -> tuple[EpisodeRecord, ...]:
+    return tuple(_iter_pilot(config, model_path, deadline_ns=deadline_ns))
+
+
+def _iter_pilot(
+    config: dict, model_path: Path, *, deadline_ns: int | None,
+) -> Iterator[EpisodeRecord]:
     """Run both controllers from the same reset and scenario seed."""
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         raise ValueError("expected pilot configuration schema_version 1")
@@ -36,7 +43,6 @@ def run_pilot(
     pd = PDController(**config["pd"])
     mpc = config["mpc"]
     weights = CostWeights(**mpc["weights"])
-    records = []
     for setup in setups:
         seed = setup["seed"]
         rng = np.random.default_rng(seed)
@@ -54,17 +60,55 @@ def run_pilot(
             return ControlDecision(torque, proposal.predictor_calls)
 
         for controller_id, controller in (("pd", pd), ("rk4_mpc", mpc_controller)):
-            records.append(run_episode(
+            yield run_episode(
                 plant, scenario, controller, controller_id=controller_id, seed=seed,
                 fallback=pd, deadline_ns=deadline_ns,
-            ))
-    return tuple(records)
+            )
+
+
+def run_recorded_pilot(
+    output: Path, config: dict, model_path: Path, manifest: dict, *,
+    deadline_ns: int | None = None,
+) -> int:
+    """Preserve completed episodes as they finish and propagate unexpected errors."""
+    output.mkdir(parents=True, exist_ok=False)
+    status_path = output / "run-status.json"
+    expected = 2 * len(config["scenarios"])
+    _write_json(status_path, {"status": "in_progress", "expected_episodes": expected})
+    records = []
+    try:
+        _write_json(output / "manifest.json", manifest)
+        for record in _iter_pilot(config, model_path, deadline_ns=deadline_ns):
+            entry = {"schema_version": 1, "episode": asdict(record)}
+            line = json.dumps(entry, allow_nan=False) + "\n"
+            with (output / "completed-episodes.jsonl").open("a", encoding="utf-8") as journal:
+                journal.write(line)
+            records.append(record)
+        _write_results(output, config, tuple(records))
+    except BaseException as error:
+        try:
+            _replace_status(status_path, {
+                "status": "aborted", "completed_episodes": len(records),
+                "expected_episodes": expected, "exception_type": type(error).__name__,
+            })
+        except OSError as status_error:
+            error.add_note(f"Could not record abort status: {status_error}")
+        raise
+    _replace_status(status_path, {
+        "status": "complete", "completed_episodes": len(records), "expected_episodes": expected,
+    })
+    return len(records)
 
 
 def write_evidence(
     output: Path, config: dict, records: tuple[EpisodeRecord, ...], manifest: dict,
 ) -> None:
     """Save raw episodes, summaries and a plot computed from their state samples."""
+    _write_results(output, config, records)
+    _write_json(output / "manifest.json", manifest)
+
+
+def _write_results(output: Path, config: dict, records: tuple[EpisodeRecord, ...]) -> None:
     cohorts = []
     for controller_id in ("pd", "rk4_mpc"):
         selected = (record for record in records if record.controller_id == controller_id)
@@ -72,7 +116,12 @@ def write_evidence(
     _write_json(output / "episodes.json", {"episodes": [asdict(record) for record in records]})
     _write_json(output / "metrics.json", {"cohorts": cohorts})
     _plot_pairs(output / "paired.png", records)
-    _write_json(output / "manifest.json", manifest)
+
+
+def _replace_status(path: Path, data: dict) -> None:
+    temporary = path.with_suffix(".tmp")
+    _write_json(temporary, data)
+    temporary.replace(path)
 
 
 def _write_json(path: Path, data: dict) -> None:

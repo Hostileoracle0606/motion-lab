@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 import tomllib
 
+import pytest
+
+from model_predictive_control import pilot
 from model_predictive_control.pilot import run_pilot, write_evidence
 
 
@@ -42,3 +45,48 @@ def test_paired_fixed_work_run_reproduces_actions_and_writes_evidence(tmp_path):
     assert result["cohorts"][1]["episodes"][0]["predictor_calls"] == 24
     assert (tmp_path / "paired.png").stat().st_size > 0
     assert json.loads((tmp_path / "manifest.json").read_text())["source_commit"] == "source-fixture"
+
+    recorded = tmp_path / "recorded"
+    assert pilot.run_recorded_pilot(
+        recorded, config, MODEL, {"source_commit": "source-fixture"},
+    ) == 2
+    status = json.loads((recorded / "run-status.json").read_text())
+    assert status == {
+        "schema_version": 1, "status": "complete", "completed_episodes": 2,
+        "expected_episodes": 2,
+    }
+    journal = [json.loads(line)["episode"] for line in
+               (recorded / "completed-episodes.jsonl").read_text().splitlines()]
+    assert journal == json.loads((recorded / "episodes.json").read_text())["episodes"]
+
+
+def test_recorded_pilot_preserves_completed_episode_on_abort(tmp_path, monkeypatch):
+    config = tomllib.loads((EXPERIMENT / "configs/pilot-v1.toml").read_text())
+    config["steps"] = 2
+    config["scenarios"] = config["scenarios"][:1]
+    advance = pilot.MujocoPlant.advance
+    calls = 0
+    failure = RuntimeError("interrupted during the second episode")
+
+    def fail_during_second_episode(self, torque):
+        nonlocal calls
+        calls += 1
+        if calls == 4:
+            raise failure
+        return advance(self, torque)
+
+    monkeypatch.setattr(pilot.MujocoPlant, "advance", fail_during_second_episode)
+    output = tmp_path / "aborted"
+    with pytest.raises(RuntimeError) as raised:
+        pilot.run_recorded_pilot(output, config, MODEL, {"source_commit": "fixture"})
+    assert raised.value is failure
+    status = json.loads((output / "run-status.json").read_text())
+    assert status["status"] == "aborted"
+    assert status["completed_episodes"] == 1
+    assert status["expected_episodes"] == 2
+    assert status["exception_type"] == "RuntimeError"
+    records = [json.loads(line) for line in (output / "completed-episodes.jsonl").read_text().splitlines()]
+    assert len(records) == 1
+    assert records[0]["episode"]["controller_id"] == "pd"
+    assert len(records[0]["episode"]["steps"]) == 2
+    assert not (output / "metrics.json").exists()

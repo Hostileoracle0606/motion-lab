@@ -33,7 +33,12 @@ which includes fallback computation. Timing describes the run's host and load.
 
 The output includes a source and environment manifest, raw episode and
 transition records, computed metrics, and a plot of both controllers for
-each scenario. All failed or truncated episodes are retained. Success
+each scenario. Returned failure and truncation records are retained. The
+driver writes each completed episode to `completed-episodes.jsonl` as it
+finishes. For a software error or interrupt it keeps completed episodes,
+records the aborted run, and propagates the error. The interrupted episode
+has no completion record. Use `run-status.json` to verify that a run finished
+before interpreting its metrics. Success
 requires a normal time-limit episode that ends with 25 post-action samples
 within 0.05 rad and 0.10 rad/s of the stationary target. Tracking RMSE
 includes the first observation. Effort integrates squared applied torque

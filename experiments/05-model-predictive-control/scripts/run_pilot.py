@@ -12,7 +12,7 @@ import mujoco
 import numpy as np
 
 from model_predictive_control.contracts import NOMINAL_CONTEXT, PHYSICS_INTERVAL_S
-from model_predictive_control.pilot import run_pilot, write_evidence
+from model_predictive_control.pilot import run_recorded_pilot
 
 
 EXPERIMENT = Path(__file__).resolve().parents[1]
@@ -69,10 +69,10 @@ def main() -> None:
         "mujoco": mujoco.__version__,
         "numpy": np.__version__,
     }
-    records = run_pilot(config, MODEL, deadline_ns=args.deadline_ns)
-    args.output.mkdir(parents=True, exist_ok=False)
-    write_evidence(args.output, config, records, manifest)
-    print(f"Saved {len(records)} development episodes to {args.output}")
+    count = run_recorded_pilot(
+        args.output, config, MODEL, manifest, deadline_ns=args.deadline_ns,
+    )
+    print(f"Saved {count} development episodes to {args.output}")
 
 
 if __name__ == "__main__":
