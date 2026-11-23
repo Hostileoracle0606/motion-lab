@@ -42,3 +42,5 @@ over simulated time. Failure episodes remain in the denominator.
 The two cases are for development. Their tolerances and outcomes can guide
 the held-out benchmark, where targets, tolerances, compute budgets and the
 threshold for a useful improvement will be locked before evaluation.
+The [pilot report](results/pilot-v1.md) records the observed outcomes and
+the proposed gates for the next comparison.
