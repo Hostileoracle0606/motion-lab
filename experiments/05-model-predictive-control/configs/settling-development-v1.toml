@@ -1,0 +1,39 @@
+terminal_velocity_weights = [0.0, 1.0, 4.0, 16.0]
+minimum_extra_holds = 2
+mild_frictionloss_nm = 0.08
+
+[[confirmation]]
+seed = 72010
+position_rad = -0.52
+velocity_rad_s = 0.0
+target_position_rad = 0.62
+
+[[confirmation]]
+seed = 72011
+position_rad = 0.42
+velocity_rad_s = -0.22
+target_position_rad = -0.56
+
+[[confirmation]]
+seed = 72012
+position_rad = -0.27
+velocity_rad_s = 0.35
+target_position_rad = 0.74
+
+[[confirmation]]
+seed = 72013
+position_rad = 0.73
+velocity_rad_s = 0.21
+target_position_rad = -0.50
+
+[[confirmation]]
+seed = 72014
+position_rad = -0.78
+velocity_rad_s = -0.16
+target_position_rad = 0.48
+
+[[confirmation]]
+seed = 72015
+position_rad = 0.31
+velocity_rad_s = 0.0
+target_position_rad = -0.71

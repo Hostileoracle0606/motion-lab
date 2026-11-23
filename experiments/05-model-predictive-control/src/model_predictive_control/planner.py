@@ -19,9 +19,10 @@ class CostWeights:
     velocity: float
     effort: float
     terminal_position: float
+    terminal_velocity: float = 0.0
 
     def __post_init__(self) -> None:
-        for name in ("position", "velocity", "effort", "terminal_position"):
+        for name in ("position", "velocity", "effort", "terminal_position", "terminal_velocity"):
             value = getattr(self, name)
             validate_finite_scalar(name, value)
             if value < 0:
@@ -85,6 +86,8 @@ def _score_batch(
         else:
             try:
                 cost += float(weights.terminal_position) * error ** 2
+                if weights.terminal_velocity:
+                    cost += float(weights.terminal_velocity) * float(current.velocity_rad_s) ** 2
                 if not math.isfinite(cost):
                     continue
             except OverflowError:

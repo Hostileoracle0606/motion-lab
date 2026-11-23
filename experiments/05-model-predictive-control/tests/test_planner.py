@@ -33,6 +33,19 @@ def test_invalid_preview_rejects_only_candidate_and_counts_attempts():
     assert (result.candidates, result.feasible_candidates, result.predictor_calls) == (2, 1, 4)
 
 
+def test_terminal_velocity_weight_prefers_the_plan_that_comes_to_rest():
+    # Both plans move by one radian and have the same sum of squared velocities.
+    # Only the second plan predicts zero terminal velocity.
+    candidates = np.array([[0, 1], [1, 0]])
+    args = (Integrator(), NOMINAL_CONTEXT, DynamicsState(0, 0), 1)
+    baseline = score_candidates(*args, CostWeights(0, 1, 0, 1), candidates)
+    penalized = score_candidates(*args, CostWeights(0, 1, 0, 1, terminal_velocity=4), candidates)
+    assert baseline.actions_nm == (0, 1)
+    assert penalized.actions_nm == (1, 0)
+    assert penalized.cost == 1.0
+    assert penalized.predictor_calls == baseline.predictor_calls == 4
+
+
 def test_out_of_range_preview_and_infeasible_accounting():
     result = score_candidates(Integrator(), NOMINAL_CONTEXT, DynamicsState(1.5, 0), 0,
                               CostWeights(1, 0, 0, 0), np.array([[1, 0], [2, 0]]))
@@ -40,7 +53,10 @@ def test_out_of_range_preview_and_infeasible_accounting():
     assert (result.candidates, result.feasible_candidates, result.predictor_calls) == (2, 0, 2)
 
 
-@pytest.mark.parametrize('values', [(-1, 0, 0, 0), (float('nan'), 0, 0, 0), (0, float('inf'), 0, 0), (True, 0, 0, 0)])
+@pytest.mark.parametrize('values', [
+    (-1, 0, 0, 0), (float('nan'), 0, 0, 0), (0, float('inf'), 0, 0), (True, 0, 0, 0),
+    (0, 0, 0, 0, -1), (0, 0, 0, 0, float('nan')), (0, 0, 0, 0, True),
+])
 def test_invalid_weights(values):
     with pytest.raises(ValueError):
         CostWeights(*values)
