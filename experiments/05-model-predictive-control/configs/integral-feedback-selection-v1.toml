@@ -1,0 +1,4 @@
+integral_gain = 0.1
+integral_limit_nm = 0.12
+calibration_source_commit = "58793fee4d231da5b2e0f09a73763878ea8c3c2b"
+calibration_results_sha256 = "422f84d76ac3d7805f452adce8d84ec57e64234715d7ea2a37e964797dcc69d6"

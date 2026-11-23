@@ -35,5 +35,5 @@ and it uses at least 99% of actions on time. This is a practical decision
 rule. Report paired uncertainty alongside each result.
 
 - [x] Inspect archived traces and verify integral update behavior.
-- [ ] Tune on calibration starts and commit the selected settings.
+- [x] Tune on calibration starts and commit the selected settings.
 - [ ] Run, audit, and report the fresh comparison.
