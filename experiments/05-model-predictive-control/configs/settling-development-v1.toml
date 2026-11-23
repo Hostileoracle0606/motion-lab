@@ -37,3 +37,39 @@ seed = 72015
 position_rad = 0.31
 velocity_rad_s = 0.0
 target_position_rad = -0.71
+
+[[feedback_confirmation]]
+seed = 72100
+position_rad = -0.63
+velocity_rad_s = 0.15
+target_position_rad = 0.55
+
+[[feedback_confirmation]]
+seed = 72101
+position_rad = 0.54
+velocity_rad_s = -0.05
+target_position_rad = -0.71
+
+[[feedback_confirmation]]
+seed = 72102
+position_rad = -0.39
+velocity_rad_s = -0.29
+target_position_rad = 0.58
+
+[[feedback_confirmation]]
+seed = 72103
+position_rad = 0.76
+velocity_rad_s = 0.0
+target_position_rad = -0.48
+
+[[feedback_confirmation]]
+seed = 72104
+position_rad = -0.32
+velocity_rad_s = 0.25
+target_position_rad = 0.69
+
+[[feedback_confirmation]]
+seed = 72105
+position_rad = 0.36
+velocity_rad_s = 0.28
+target_position_rad = -0.61

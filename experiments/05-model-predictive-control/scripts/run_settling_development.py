@@ -1,4 +1,4 @@
-"""Paired development-only ablation of a terminal speed cost in MPC."""
+"""Compare ways to improve MPC settling on paired development cases."""
 
 import argparse
 from dataclasses import asdict, replace
@@ -62,6 +62,7 @@ def configuration(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--feedback-proposal", action="store_true")
     args = parser.parse_args()
     if git_output("status", "--porcelain"):
         parser.error("commit the experiment source before recording results")
@@ -78,6 +79,7 @@ def main():
     tolerances = base["metrics"]
     manifest = {
         "scope": "settling_development",
+        "experiment": "feedback_proposal" if args.feedback_proposal else "terminal_speed",
         "source_commit": git_output("rev-parse", "HEAD"),
         "base_config_sha256": base_digest, "protocol_sha256": protocol_digest,
         "base_config": base, "protocol": protocol, "predictor_context": asdict(NOMINAL_CONTEXT),
@@ -87,7 +89,7 @@ def main():
     }
     (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
 
-    def run_case(plant, condition, setup, stage, weight):
+    def run_case(plant, condition, setup, stage, weight, *, use_feedback=False):
         seed = setup["seed"]
         scenario = Scenario(
             setup.get("scenario_id", f"{condition}-{seed}"),
@@ -95,14 +97,16 @@ def main():
             setup.get("target_position_rad", base["target_position_rad"]),
             base["steps"],
         )
-        name = "pd" if weight is None else f"terminal-speed-{weight:g}"
+        name = "pd" if weight is None else ("feedback-proposal" if use_feedback else f"terminal-speed-{weight:g}")
         controller = pd if weight is None else planning_controller(
-            plan, predictor, replace(weights, terminal_velocity=weight), base["mpc"], seed, {},
+            plan, predictor, replace(weights, terminal_velocity=weight), base["mpc"], seed,
+            {"feedback": pd} if use_feedback else {},
         )
         record = run_episode(
             plant, scenario, controller, controller_id=name, seed=seed, fallback=pd,
         )
-        metadata = {"stage": stage, "condition": condition, "terminal_velocity_weight": weight}
+        metadata = {"stage": stage, "condition": condition, "terminal_velocity_weight": weight,
+                    "feedback_proposal": use_feedback}
         with (args.output / "episodes.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps({**metadata, "episode": asdict(record)}, allow_nan=False) + "\n")
         return {
@@ -111,22 +115,30 @@ def main():
         }
 
     calibration = {}
-    for weight in protocol["terminal_velocity_weights"]:
-        calibration[weight] = [
-            run_case(nominal, "nominal", setup, "calibration", weight) for setup in base["scenarios"]
-        ]
-        print(f"Calibration weight {weight:g}: {summarize(calibration[weight])}", flush=True)
-    selected = max(
-        (weight for weight in calibration if weight > 0),
-        key=lambda w: (sum(r["success"] for r in calibration[w]),
-                       median(r["final_hold_samples"] for r in calibration[w]), -w),
-    )
+    selected = 0.0
+    if args.feedback_proposal:
+        confirmation_cases = protocol["feedback_confirmation"]
+    else:
+        confirmation_cases = protocol["confirmation"]
+        for weight in protocol["terminal_velocity_weights"]:
+            calibration[weight] = [
+                run_case(nominal, "nominal", setup, "calibration", weight) for setup in base["scenarios"]
+            ]
+            print(f"Calibration weight {weight:g}: {summarize(calibration[weight])}", flush=True)
+        selected = max(
+            (weight for weight in calibration if weight > 0),
+            key=lambda w: (sum(r["success"] for r in calibration[w]),
+                           median(r["final_hold_samples"] for r in calibration[w]), -w),
+        )
     confirmation = {}
     pairs = []
     for condition, plant in (("nominal", nominal), ("mild_friction", friction)):
         sets = {
-            name: [run_case(plant, condition, setup, "confirmation", weight)
-                   for setup in protocol["confirmation"]]
+            name: [
+                run_case(plant, condition, setup, "confirmation", weight,
+                         use_feedback=args.feedback_proposal and name == "selected")
+                for setup in confirmation_cases
+            ]
             for name, weight in (("baseline", 0.0), ("selected", selected), ("pd", None))
         }
         confirmation[condition] = sets
@@ -142,6 +154,7 @@ def main():
     passes = extra_holds >= protocol["minimum_extra_holds"] and not any(p["new_truth_failure"] for p in pairs)
     result = {
         "selected_weight": selected, "extra_holds": extra_holds, "improvement_gate_passed": passes,
+        "feedback_proposal": args.feedback_proposal,
         "calibration": {weight: summarize(rows) for weight, rows in calibration.items()},
         "confirmation": {
             condition: {name: summarize(rows) for name, rows in sets.items()}
@@ -153,7 +166,7 @@ def main():
         ] + [row for sets in confirmation.values() for rows in sets.values() for row in rows],
     }
     (args.output / "results.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
-    print(f"Selected weight {selected:g}, confirmation change {extra_holds:+d} holds, gate passed: {passes}")
+    print(f"Confirmation change {extra_holds:+d} holds, gate passed: {passes}")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from forward_dynamics.types import (
     DynamicsContext, DynamicsState, Predictor, validate_finite_scalar,
     validate_prediction_inputs, validate_state,
 )
-from model_predictive_control.contracts import POSITION_LIMIT_RAD, PlanResult
+from model_predictive_control.contracts import Controller, POSITION_LIMIT_RAD, PlanResult
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,7 @@ def score_candidates(
 def _score_batch(
     predictor: Predictor, context: DynamicsContext, state: DynamicsState,
     target_position_rad: float, weights: CostWeights, candidates_nm: np.ndarray,
+    *, feedback: Controller | None = None,
 ) -> tuple[PlanResult, list[tuple[int, float]]]:
     """Return the public result and feasible candidate indices and costs."""
     validate_prediction_inputs(state, 0.0, context)
@@ -65,7 +66,15 @@ def _score_batch(
     for index, candidate in enumerate(candidates):
         current = state
         cost = 0.0
+        uses_feedback = feedback is not None and index == len(candidates) - 1
+        feedback_actions = []
         for torque in candidate:
+            if uses_feedback:
+                request = feedback(current, target_position_rad).requested_torque_nm
+                validate_finite_scalar("feedback torque", request)
+                limit = float(context.torque_limit_nm)
+                torque = min(limit, max(-limit, float(request)))
+                feedback_actions.append(torque)
             calls += 1
             try:
                 current = predictor.predict(current, float(torque), context)
@@ -96,20 +105,24 @@ def _score_batch(
             ranked_candidates.append((index, cost))
             if best_cost is None or cost < best_cost:
                 best_cost = cost
-                best_actions = tuple(float(torque) for torque in candidate)
+                best_actions = (tuple(feedback_actions) if uses_feedback
+                                else tuple(float(torque) for torque in candidate))
     return PlanResult(best_actions, best_cost, len(candidates), feasible, calls), ranked_candidates
 
 
 def plan(
     predictor: Predictor, context: DynamicsContext, state: DynamicsState,
     target_position_rad: float, weights: CostWeights, *, horizon: int,
-    candidate_count: int, rng: np.random.Generator,
+    candidate_count: int, rng: np.random.Generator, feedback: Controller | None = None,
 ) -> PlanResult:
-    """Sample exactly candidate_count torque sequences using the supplied RNG."""
+    """Sample exactly candidate_count sequences, optionally replacing the last with feedback."""
     for name, value in (("horizon", horizon), ("candidate_count", candidate_count)):
         if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
             raise ValueError(f"{name} must be a positive integer")
     validate_prediction_inputs(state, 0.0, context)
     candidates = rng.uniform(-context.torque_limit_nm, context.torque_limit_nm,
                              size=(candidate_count, horizon))
-    return score_candidates(predictor, context, state, target_position_rad, weights, candidates)
+    result, _ = _score_batch(
+        predictor, context, state, target_position_rad, weights, candidates, feedback=feedback,
+    )
+    return result

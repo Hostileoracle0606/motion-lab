@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from forward_dynamics.types import DynamicsState
-from model_predictive_control.contracts import NOMINAL_CONTEXT, POSITION_LIMIT_RAD
+from model_predictive_control.contracts import ControlDecision, NOMINAL_CONTEXT, POSITION_LIMIT_RAD
 from model_predictive_control.planner import CostWeights, plan, score_candidates
 
 
@@ -88,6 +88,24 @@ def test_plan_draws_exact_seeded_candidates():
     result = plan(Integrator(), NOMINAL_CONTEXT, DynamicsState(0, 0), 0, CostWeights(1, 1, 1, 1), horizon=2, candidate_count=3, rng=rng)
     assert result == expected_result
     assert rng.random() == expected_rng.random()
+
+
+def test_feedback_candidate_uses_the_predicted_state_within_candidate_budget():
+    class QuarterStep:
+        def predict(self, state, applied_torque_nm, context):
+            return DynamicsState(state.position_rad + applied_torque_nm / 4, 0.0)
+
+    def feedback(state, target):
+        return ControlDecision(15.0 if state.position_rad < target else 0.0)
+
+    result = plan(
+        QuarterStep(), NOMINAL_CONTEXT, DynamicsState(0, 0), 0.75,
+        CostWeights(1, 0, 0, 1), horizon=2, candidate_count=2,
+        rng=np.random.default_rng(0), feedback=feedback,
+    )
+    assert result.actions_nm == (3.0, 0.0)
+    assert result.cost == 0.0
+    assert (result.candidates, result.feasible_candidates, result.predictor_calls) == (2, 2, 4)
 
 
 def test_unexpected_predictor_exception_propagates():

@@ -24,3 +24,19 @@ improves sustained holds.
 - Keep the original Phase 5 protocol and evidence frozen. This follows
   the owner's decision to defer the clean-checkout reproduction and
   prioritize development. The results support development decisions.
+
+## Follow-up after the terminal speed experiment
+
+The terminal speed penalty gained zero holds on the paired development
+confirmation. Test proposal quality with the original objective. Draw the
+same 16 random sequences and replace the last with one rollout that applies
+the existing PD equation to each successive predicted state. Evaluate it
+in the same scoring loop. This reserves one slot for a plausible feedback
+trajectory and holds the prediction ceiling at 480 calls per decision.
+The planner selects a first action from the lowest-cost feasible trajectory.
+Standalone PD remains the comparator.
+
+Use the six separate `feedback_confirmation` starts across nominal and
+mild-friction truth. Compare uniform shooting, shooting with one feedback
+proposal, and standalone PD. Use the same +2-hold and no new truth failure
+criterion. Record the tracking, effort, and per-decision timing tradeoffs.
