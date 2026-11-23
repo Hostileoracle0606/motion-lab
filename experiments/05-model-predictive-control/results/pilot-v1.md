@@ -31,6 +31,14 @@ per-episode p99 decision latency ranged from 6.37 to 26.56 ms across the two
 runs. The pilot therefore supplies host-specific timing observations.
 Measure the timing gate in a controlled-load run.
 
+The [evidence archive](pilot-v1/evidence.zip) contains the original
+manifests, trajectory records with raw timing, metrics, plots, and SHA-256
+index for both runs. The [paired plot](pilot-v1/paired.png) and
+[first](pilot-v1/metrics-first.json) and [repeat](pilot-v1/metrics-repeat.json)
+metrics are also directly viewable. These artifacts came from the exact
+source above. Later driver changes add interrupted-run status and
+completed-episode preservation without replacing the original measurements.
+
 ## Proposed gates before freezing the comparison
 
 - Require success within five percentage points of the paired PD baseline
