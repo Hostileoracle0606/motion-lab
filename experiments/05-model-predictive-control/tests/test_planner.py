@@ -108,6 +108,57 @@ def test_feedback_candidate_uses_the_predicted_state_within_candidate_budget():
     assert (result.candidates, result.feasible_candidates, result.predictor_calls) == (2, 2, 4)
 
 
+def test_batched_feedback_rolls_each_candidate_forward_one_step_at_a_time():
+    class QuarterStep:
+        def __init__(self):
+            self.rows_per_batch = []
+
+        def predict(self, state, applied_torque_nm, context):
+            raise AssertionError("healthy batches should perform no scalar predictions")
+
+        def predict_batch(self, states, actions, context):
+            self.rows_per_batch.append(len(states))
+            return states + np.column_stack((actions / 4, np.zeros(len(actions))))
+
+    predictor = QuarterStep()
+    result = plan(
+        predictor, NOMINAL_CONTEXT, DynamicsState(0, 0), 0.75,
+        CostWeights(1, 0, 0.0, 1), horizon=2, candidate_count=2,
+        rng=np.random.default_rng(0), batched=True,
+        feedback=lambda state, target: ControlDecision(15.0 if state.position_rad < target else 0.0),
+    )
+    assert result.actions_nm == (3.0, 0.0)
+    assert result.cost == 0.0
+    assert (result.candidates, result.feasible_candidates, result.predictor_calls) == (2, 2, 4)
+    assert predictor.rows_per_batch == [2, 2]
+
+
+@pytest.mark.parametrize("batch_raises, attempted_rows", [(False, 3), (True, 5)])
+def test_batched_prediction_isolates_invalid_candidate(batch_raises, attempted_rows):
+    class RejectPositive:
+        def predict(self, state, applied_torque_nm, context):
+            if applied_torque_nm > 0:
+                raise ValueError("invalid preview")
+            return state
+
+        def predict_batch(self, states, actions, context):
+            bad = actions > 0
+            if batch_raises and bad.any():
+                raise ValueError("invalid preview")
+            states = states.copy()
+            states[bad, 0] = np.nan
+            return states
+
+    result = plan(
+        RejectPositive(), NOMINAL_CONTEXT, DynamicsState(0, 0), 0,
+        CostWeights(1, 0, 0, 0), horizon=2, candidate_count=2,
+        rng=np.random.default_rng(0), batched=True,
+    )
+    assert result.actions_nm == pytest.approx((-2.754158856, -2.900834187))
+    assert result.feasible_candidates == 1
+    assert result.predictor_calls == attempted_rows
+
+
 def test_unexpected_predictor_exception_propagates():
     class Broken:
         def predict(self, state, applied_torque_nm, context):
