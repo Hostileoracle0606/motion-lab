@@ -25,6 +25,8 @@ class EpisodeMetrics:
     predictor_calls: int
     decision_time_p50_ms: float | None
     decision_time_p99_ms: float | None
+    action_ready_time_p50_ms: float | None
+    action_ready_time_p99_ms: float | None
 
 
 @dataclass(frozen=True)
@@ -97,6 +99,10 @@ def summarize_episode(episode: EpisodeRecord, *, position_tolerance_rad: float,
             suffix_length = 0
     success = episode.termination == 'time_limit' and suffix_length >= hold_steps
     times = [s.decision_time_ns / 1_000_000 for s in steps]
+    action_ready_times = [
+        s.action_ready_time_ns / 1_000_000
+        for s in steps if s.action_ready_time_ns is not None
+    ]
     return EpisodeMetrics(
         scenario_id=episode.scenario.scenario_id, controller_id=episode.controller_id,
         seed=episode.seed, tracking_rmse_rad=rmse,
@@ -108,6 +114,8 @@ def summarize_episode(episode: EpisodeRecord, *, position_tolerance_rad: float,
         deadline_miss_count=sum(s.deadline_missed for s in steps),
         predictor_calls=sum(s.predictor_calls for s in steps),
         decision_time_p50_ms=_quantile(times, .5), decision_time_p99_ms=_quantile(times, .99),
+        action_ready_time_p50_ms=_quantile(action_ready_times, .5),
+        action_ready_time_p99_ms=_quantile(action_ready_times, .99),
     )
 
 

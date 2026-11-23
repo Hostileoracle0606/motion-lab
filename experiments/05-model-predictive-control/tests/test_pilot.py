@@ -30,6 +30,7 @@ def test_paired_fixed_work_run_reproduces_actions_and_writes_evidence(tmp_path):
         for episode in data:
             for step in episode["steps"]:
                 del step["decision_time_ns"]
+                del step["action_ready_time_ns"]
         return data
 
     assert without_timing(first) == without_timing(second)

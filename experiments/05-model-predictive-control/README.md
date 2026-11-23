@@ -28,7 +28,8 @@ The default fixed-work mode allows repeatable decisions irrespective of
 process scheduling. The optional `--deadline-ns 10000000` runs a separate
 development experiment with a 10 ms deadline on the primary controller.
 It discards late decisions after they return and records the fallback.
-Timing describes the run's host and load.
+The report includes primary decision latency and action-ready latency,
+which includes fallback computation. Timing describes the run's host and load.
 
 The output includes a source and environment manifest, raw episode and
 transition records, computed metrics, and a plot of both controllers for

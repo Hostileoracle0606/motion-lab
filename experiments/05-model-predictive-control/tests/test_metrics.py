@@ -14,7 +14,8 @@ def state(p, v=0.0):
 def step(before, after, torque=1.0, physics_steps=5, ns=1_000_000, **kwargs):
     return StepRecord(before, after, torque, torque, physics_steps, ns,
                       kwargs.get('calls', 0), kwargs.get('missed', False),
-                      kwargs.get('fallback'), kwargs.get('saturated', False))
+                      kwargs.get('fallback'), kwargs.get('saturated', False),
+                      action_ready_time_ns=kwargs.get('ready_ns'))
 
 
 def episode(steps, termination='time_limit', seed=1, controller='mpc', target=1.0):
@@ -43,6 +44,13 @@ def test_hand_calculated_trace_and_immutable_result():
     assert m.decision_time_p99_ms == pytest.approx(4.94)
     with pytest.raises(FrozenInstanceError):
         m.success = False
+
+
+def test_action_ready_timing_includes_fallback_work():
+    m = summarize(episode([step(state(0), state(0.5), ns=2_000_000,
+                                fallback="deadline", ready_ns=3_000_000)]))
+    assert m.decision_time_p99_ms == 2
+    assert m.action_ready_time_p50_ms == m.action_ready_time_p99_ms == 3
 
 
 def test_early_termination_and_missing_terminal_state():
