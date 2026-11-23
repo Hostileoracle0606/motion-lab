@@ -420,7 +420,9 @@ Compare the rebuilt CSVs and `plot_data.json` with the published report-v4.
 The regenerated provenance records the new output path. The original
 evaluation preserves its dirty-worktree flag from the run with generated
 untracked outputs. The training roster records a clean source commit.
-Independent retraining and checkpoint replay are tracked in [Issue #30][reproduction].
+The [independent reproduction record](REPRODUCTION.md) documents the 45-run
+retrain, recorded-device checkpoint replay, final-test and report comparisons.
+[Issue #30][reproduction] tracks Stage 4 closeout.
 
 [study-release]: https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-study-v1
 [reproduction]: https://github.com/Hostileoracle0606/motion-lab/issues/30

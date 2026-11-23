@@ -134,12 +134,12 @@ generalization, cross-platform, or closed-loop control-quality claim follows.
 
 Candidate model families should begin with a small multilayer perceptron or residual predictor before recurrent or probabilistic models are introduced.
 
-**Planned artifact**
+**Artifacts**
 
-- A reproducible training pipeline.
-- Dataset normalization derived from training data only.
+- A versioned training pipeline with normalization fitted on the training split.
 - Checkpoints tied to data and configuration versions.
-- One-step and multi-step comparisons with simple baselines.
+- Published one-step and multi-step comparisons with simple baselines.
+- A [clean-checkout reproduction record](../experiments/04-learned-dynamics/REPRODUCTION.md).
 
 **Completion gate**
 
@@ -148,7 +148,10 @@ Candidate model families should begin with a small multilayer perceptron or resi
 - Results include variance across declared seeds.
 - Failure cases and out-of-distribution scenarios are shown.
 
-**Status:** Planned.
+**Status:** The frozen one-link simulation study has been reproduced on the
+same arm64 macOS host. [Issue #30](https://github.com/Hostileoracle0606/motion-lab/issues/30)
+tracks Stage 4 closeout. The held-out scenario changes the trajectory
+conditions. Broader plant and observation shift testing is follow-up work.
 
 ## Stage 5 — Model predictive control
 
