@@ -78,6 +78,7 @@ class StepRecord:
     fallback_reason: FallbackReason | None
     saturated: bool
     selected_torque_nm: float | None = None
+    action_ready_time_ns: int | None = None
 
 
 @dataclass(frozen=True)

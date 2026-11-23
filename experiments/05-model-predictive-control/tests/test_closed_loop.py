@@ -39,7 +39,7 @@ def test_fallback_reason_and_query_accounting(command, elapsed, reason, recorded
     def fallback(state, target):
         seen.append(state)
         return ControlDecision(-4.0, 3)
-    times = iter([0, elapsed])
+    times = iter([0, elapsed, elapsed + 1])
     result = run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(command, 2), controller_id='c', seed=1, fallback=fallback, deadline_ns=5, clock_ns=lambda: next(times))
     step = result.steps[0]
     assert step.fallback_reason == reason and step.requested_torque_nm == recorded
@@ -67,3 +67,24 @@ def test_selected_torque_preserves_clipped_fallback():
 def test_missing_fallback_decision_is_configuration_error():
     with pytest.raises(ValueError, match='fallback'):
         run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(None), controller_id='c', seed=0, fallback=lambda s,t: None)
+
+@pytest.mark.parametrize('target', [float('nan'), float('inf'), 1.6, -1.6, True])
+def test_invalid_target_rejected_before_reset(target):
+    class NoReset(Plant):
+        def reset(self, state):
+            pytest.fail('reset must not run for an invalid target')
+    with pytest.raises(ValueError):
+        run_episode(NoReset(), Scenario('s', S, target, 1), lambda s,t: ControlDecision(0), controller_id='c', seed=0, fallback=None)
+
+
+def test_action_ready_time_includes_fallback():
+    times = iter([10, 15, 25])
+    result = run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(None), controller_id='c', seed=0, fallback=lambda s,t: ControlDecision(1), clock_ns=lambda: next(times))
+    assert result.steps[0].decision_time_ns == 5
+    assert result.steps[0].action_ready_time_ns == 15
+
+
+def test_action_ready_time_equals_primary_time_without_fallback():
+    times = iter([10, 15])
+    result = run_episode(Plant(), scenario(1), lambda s,t: ControlDecision(1), controller_id='c', seed=0, fallback=None, clock_ns=lambda: next(times))
+    assert result.steps[0].action_ready_time_ns == 5

@@ -5,7 +5,7 @@ import time
 from feedback_control.controllers import pd_control
 from forward_dynamics.types import validate_finite_scalar
 from model_predictive_control.contracts import (
-    ControlDecision, EpisodeRecord, StepRecord, TORQUE_LIMIT_NM,
+    ControlDecision, EpisodeRecord, StepRecord, TORQUE_LIMIT_NM, POSITION_LIMIT_RAD,
 )
 
 
@@ -31,6 +31,9 @@ def _valid_request(value):
 
 def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
                 deadline_ns=None, clock_ns=time.perf_counter_ns):
+    validate_finite_scalar("target_position_rad", scenario.target_position_rad)
+    if abs(float(scenario.target_position_rad)) > POSITION_LIMIT_RAD:
+        raise ValueError("target_position_rad exceeds joint limit")
     if scenario.max_steps <= 0:
         raise ValueError("max_steps must be positive")
     if deadline_ns is not None and deadline_ns < 0:
@@ -50,10 +53,12 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
                   "invalid_command" if not valid else None)
         calls = decision.predictor_calls
         selected = recorded
+        action_ready = elapsed
         if reason is not None:
             if fallback is None:
                 raise ValueError("fallback must provide a finite torque")
             fallback_decision = fallback(state, scenario.target_position_rad)
+            action_ready = clock_ns() - start
             if not isinstance(fallback_decision, ControlDecision):
                 raise ValueError("fallback must provide a decision with finite torque")
             calls += fallback_decision.predictor_calls
@@ -64,7 +69,7 @@ def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
         plant_step = plant.advance(applied)
         steps.append(StepRecord(state, plant_step.next_state, recorded, applied,
                                 plant_step.physics_steps, elapsed, calls, missed,
-                                reason, applied != selected, selected))
+                                reason, applied != selected, selected, action_ready))
         if plant_step.termination is not None:
             termination = plant_step.termination
             break
