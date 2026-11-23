@@ -53,10 +53,10 @@ def _iter_pilot(
             config["target_position_rad"], config["steps"],
         )
 
-        shooting = _planning_controller(plan, predictor, weights, mpc, seed, {})
+        shooting = planning_controller(plan, predictor, weights, mpc, seed, {})
         controllers = [("pd", pd), ("rk4_mpc", shooting)]
         if "cem" in mpc:
-            cem = _planning_controller(plan_cem, predictor, weights, mpc, seed, mpc["cem"])
+            cem = planning_controller(plan_cem, predictor, weights, mpc, seed, mpc["cem"])
             controllers.append(("rk4_cem", cem))
         for controller_id, controller in controllers:
             if on_start is not None:
@@ -67,7 +67,7 @@ def _iter_pilot(
             )
 
 
-def _planning_controller(optimizer, predictor, weights, mpc, seed, parameters):
+def planning_controller(optimizer, predictor, weights, mpc, seed, parameters):
     rng = np.random.default_rng(seed)
 
     def choose(state: DynamicsState, target: float) -> ControlDecision:
@@ -96,18 +96,25 @@ def run_recorded_pilot(
     deadline_ns: int | None = None,
 ) -> int:
     """Preserve completed episodes as they finish and propagate unexpected errors."""
+    roster = [identity(setup["scenario_id"], controller_id, setup["seed"])
+              for setup in config["scenarios"] for controller_id in _controller_ids(config)]
+    return record_run(
+        output, config, manifest, roster,
+        lambda on_start: _iter_pilot(config, model_path, deadline_ns=deadline_ns, on_start=on_start),
+    )
+
+
+def record_run(output: Path, config: dict, manifest: dict, roster: list[dict], make_episodes) -> int:
+    """Journal the shared attempt roster and publish summaries after a complete run."""
     output.mkdir(parents=True, exist_ok=False)
     status_path = output / "run-status.json"
-    expected = len(_controller_ids(config)) * len(config["scenarios"])
+    expected = len(roster)
     _write_json(status_path, {"status": "in_progress", "expected_episodes": expected})
     records = []
     try:
         _write_json(output / "manifest.json", manifest)
-        roster = [identity(setup["scenario_id"], controller_id, setup["seed"])
-                  for setup in config["scenarios"] for controller_id in _controller_ids(config)]
         write_roster(output, roster)
-        for record in _iter_pilot(config, model_path, deadline_ns=deadline_ns,
-                                  on_start=lambda attempt: record_started(output, attempt)):
+        for record in make_episodes(lambda attempt: record_started(output, attempt)):
             entry = {"schema_version": 1, "episode": asdict(record)}
             line = json.dumps(entry, allow_nan=False) + "\n"
             with (output / "completed-episodes.jsonl").open("a", encoding="utf-8") as journal:
@@ -147,7 +154,7 @@ def write_evidence(
 
 def _write_results(output: Path, config: dict, records: tuple[EpisodeRecord, ...]) -> None:
     cohorts = []
-    for controller_id in _controller_ids(config):
+    for controller_id in dict.fromkeys(record.controller_id for record in records):
         selected = (record for record in records if record.controller_id == controller_id)
         cohorts.append(asdict(summarize_cohort(selected, **config["metrics"])))
     _write_json(output / "episodes.json", {"episodes": [asdict(record) for record in records]})

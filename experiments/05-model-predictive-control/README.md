@@ -102,4 +102,61 @@ as truncated, even if its JSON parses; it cannot support final evidence. Keep
 the original folder for investigation and run again in a fresh output folder;
 do not append to or silently repair a partial run. Completed records remain
 available for inspection, and incomplete runs cannot be accepted as final evidence.
+
+## Frozen predictor comparison protocol
+
+The comparison uses one random-shooting optimizer with the same objective,
+16 candidate slots, and 30-step horizon for analytical RK4, nominal MuJoCo,
+and the published learned checkpoint. Standalone PD is the task reference
+and the fallback. Each of 20 preregistered seeds provides the same starting
+state and target for the nominal, heavier, friction, and combined conditions.
+Every controller receives exact angle and angular velocity from its truth
+episode. RK4, MuJoCo, and the learned model all receive the nominal predictor
+context across conditions. Nominal MuJoCo shares the simulator and model
+parameters of nominal truth. The shifted truth model's XML digest and
+runtime reset policy are recorded separately, and the predictors receive
+the same nominal information under shift.
+
+Use the checkpoint bundle
+`training-v1/canonical32-mps-seed0-repeat0/checkpoint` from the original
+[Experiment 04 study release](https://github.com/Hostileoracle0606/motion-lab/releases/tag/experiment-04-study-v1).
+Follow the [study README's archive verification instructions](../04-learned-dynamics/README.md#download-and-audit-the-published-study).
+The comparison pins that canonical width-32, history-free run by bundle
+hash and validation-selected epoch 75. All three predictors execute the
+scalar inference interface on CPU. There is no optimizer, checkpoint, or
+parameter tuning against the held-out cases.
+
+Use a disjoint development-only roster to verify the normal entry point:
+
+```sh
+uv run --locked python experiments/05-model-predictive-control/scripts/run_predictor_comparison.py \
+  --config experiments/05-model-predictive-control/configs/predictor-comparison-smoke-v1.toml \
+  --checkpoint /path/to/canonical32-mps-seed0-repeat0/checkpoint \
+  --output /tmp/motion-lab-predictor-smoke
+```
+
+The [frozen protocol](configs/predictor-comparison-v1.toml) declares two
+fixed-work repetitions and a 10 ms deadline-discard run. Hold success,
+truth safety, and 99th-percentile action-ready latency each have a separate
+gate. A practical improvement also requires a paired reduction in settling
+time or torque effort on at least ten jointly successful pairs. The
+[comparison plan](../../docs/superpowers/plans/2026-11-23-mpc-frozen-predictor-protocol.md)
+states the rule and scope. Use the strict [attempt audit](#attempt-accounting-and-recovery)
+before evaluating any held-out output. An interrupted or missing attempt
+prevents a complete-evidence claim.
+
+To generate a new preflight for inspection, use the held-out config
+with `--preflight` and a fresh JSON output path. This validates the
+checkpoint and expands the roster without simulating any cases.
+Actual held-out execution requires `--frozen-manifest` pointing to the
+reviewed manifest and verifies its config, code objects, checkpoint and
+case roster before any episode begins.
+
+The frozen manifest lists the required runs `fixed-work-01`,
+`fixed-work-02`, and `deadline-discard-01`. Use `--mode` and
+`--repetition` to identify each run. Before computing the final comparison,
+pass all three output folders to `scripts/audit_predictor_comparison.py`
+with the same `--frozen-manifest`. The audit verifies that every declared
+run completed exactly once. Issue #48 owns the per-condition and paired
+report and the decisions against the locked gates.
 The held-out protocol must cite this policy before the study starts.

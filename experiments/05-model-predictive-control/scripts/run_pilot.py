@@ -13,6 +13,7 @@ import numpy as np
 
 from model_predictive_control.contracts import NOMINAL_CONTEXT, PHYSICS_INTERVAL_S
 from model_predictive_control.pilot import run_recorded_pilot
+from model_predictive_control.provenance import cpu_model
 
 
 EXPERIMENT = Path(__file__).resolve().parents[1]
@@ -24,16 +25,6 @@ def git(*arguments: str) -> str:
     return subprocess.check_output(
         ["git", "-C", str(REPOSITORY), *arguments], text=True,
     ).strip()
-
-
-def cpu_model() -> str:
-    if platform.system() == "Darwin":
-        result = subprocess.run(
-            ["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
-    return "unknown"
 
 
 def main() -> None:

@@ -1,0 +1,2852 @@
+{
+  "schema_version": 1,
+  "source_commit": "c6cb38f18b779bb4cb79f56852e363a45bfc18b6",
+  "protocol": {
+    "model_context": {
+      "environment_id": "motion-lab/experiment-01/one-link",
+      "environment_version": "8612091d73babb1a0122cb5163ea744183486cd8cc6fbae2813f45818be57263",
+      "control_interval_s": 0.01,
+      "torque_limit_nm": 3.0
+    },
+    "truth_conditions": [
+      {
+        "id": "nominal",
+        "link_mass_kg": 1.0,
+        "frictionloss_nm": 0.0,
+        "truth_model_sha256": "8612091d73babb1a0122cb5163ea744183486cd8cc6fbae2813f45818be57263",
+        "automatic_reset": false
+      },
+      {
+        "id": "heavier",
+        "link_mass_kg": 1.35,
+        "frictionloss_nm": 0.0,
+        "truth_model_sha256": "ff2511cfadd2fcc3be1a5a604c2cab0b9c3dc1f27b3837f9b374a1ab54fbe0f9",
+        "automatic_reset": false
+      },
+      {
+        "id": "friction",
+        "link_mass_kg": 1.0,
+        "frictionloss_nm": 0.12,
+        "truth_model_sha256": "36e0a18fe9956427c0acd1c0ebc1751b84c492e88669356af9a2c3ab2d08de65",
+        "automatic_reset": false
+      },
+      {
+        "id": "combined",
+        "link_mass_kg": 1.35,
+        "frictionloss_nm": 0.12,
+        "truth_model_sha256": "b9c3f9ffb9fe75d36f229ee2c66d4fa1cdad7f73afb4e05cbb58103c212b6a1d",
+        "automatic_reset": false
+      }
+    ],
+    "checkpoint": {
+      "run_id": "canonical32-mps-seed0-repeat0",
+      "bundle_sha256": "a30d771e770e9aabcb1d2f5fa7014bb9125d5487e0034dc901f4f7ded411960c",
+      "release_archive_sha256": "f769e45bac9c2b83d6c3b2a13643adfec51b3016f62976586cdfe4d44634330a",
+      "runtime_device": "cpu",
+      "training_run": {
+        "device": "mps",
+        "loss": "one_step",
+        "membership": "all",
+        "model": {
+          "hidden_width": 32,
+          "history_steps": 0
+        },
+        "repeat": 0,
+        "seed": 0,
+        "variant_id": "canonical32"
+      },
+      "selected_epoch": 75,
+      "selection_metric": "validation_normalized_one_step_mse",
+      "selected_validation_mse": 0.023831927406135947
+    },
+    "predictors": {
+      "rk4_mpc": {
+        "predictor_id": "analytical_rk4_0.002",
+        "device": "cpu"
+      },
+      "mujoco_mpc": {
+        "predictor_id": "mujoco",
+        "device": "cpu"
+      },
+      "learned_mpc": {
+        "predictor_id": "canonical32-mps-seed0-repeat0",
+        "device": "cpu"
+      }
+    },
+    "observation": "exact_scalar_truth_angle_and_angular_velocity_each_control_step",
+    "information_policy": "all_predictors_use_nominal_dynamics_context_for_every_truth_condition",
+    "attempt_policy": "experiments/05-model-predictive-control/README.md#attempt-accounting-and-recovery",
+    "cases": [
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74000",
+          "initial_state": {
+            "position_rad": 0.2558110877591374,
+            "velocity_rad_s": 0.030404933798627198
+          },
+          "target_position_rad": -0.6848276950222314,
+          "max_steps": 300
+        },
+        "seed": 74000
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74001",
+          "initial_state": {
+            "position_rad": -0.3329422862473795,
+            "velocity_rad_s": 0.18061157817561774
+          },
+          "target_position_rad": 0.4848999530869312,
+          "max_steps": 300
+        },
+        "seed": 74001
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74002",
+          "initial_state": {
+            "position_rad": -0.5157419920185393,
+            "velocity_rad_s": 0.17342200436553185
+          },
+          "target_position_rad": 0.5899834055217753,
+          "max_steps": 300
+        },
+        "seed": 74002
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74003",
+          "initial_state": {
+            "position_rad": 0.3959935960749313,
+            "velocity_rad_s": 0.12574031958053877
+          },
+          "target_position_rad": -0.773544068827577,
+          "max_steps": 300
+        },
+        "seed": 74003
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74004",
+          "initial_state": {
+            "position_rad": 0.3550162955413513,
+            "velocity_rad_s": 0.14449757831197035
+          },
+          "target_position_rad": -0.6849918442008242,
+          "max_steps": 300
+        },
+        "seed": 74004
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74005",
+          "initial_state": {
+            "position_rad": -0.45162004171388603,
+            "velocity_rad_s": -0.26291526151654027
+          },
+          "target_position_rad": 0.7871080951203799,
+          "max_steps": 300
+        },
+        "seed": 74005
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74006",
+          "initial_state": {
+            "position_rad": -0.8087070217050747,
+            "velocity_rad_s": 0.17661356301696748
+          },
+          "target_position_rad": 0.5590890346840317,
+          "max_steps": 300
+        },
+        "seed": 74006
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74007",
+          "initial_state": {
+            "position_rad": 0.4674547811502064,
+            "velocity_rad_s": 0.0328163852678178
+          },
+          "target_position_rad": -0.7228977616744355,
+          "max_steps": 300
+        },
+        "seed": 74007
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74008",
+          "initial_state": {
+            "position_rad": 0.7417101438001246,
+            "velocity_rad_s": -0.056827351674301495
+          },
+          "target_position_rad": -0.4849228791240811,
+          "max_steps": 300
+        },
+        "seed": 74008
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74009",
+          "initial_state": {
+            "position_rad": -0.3540792881060043,
+            "velocity_rad_s": -0.31215917049498465
+          },
+          "target_position_rad": 0.6317063109633252,
+          "max_steps": 300
+        },
+        "seed": 74009
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74010",
+          "initial_state": {
+            "position_rad": 0.30190845623269014,
+            "velocity_rad_s": -0.26514380786944086
+          },
+          "target_position_rad": -0.5506851106694202,
+          "max_steps": 300
+        },
+        "seed": 74010
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74011",
+          "initial_state": {
+            "position_rad": -0.7766669674552624,
+            "velocity_rad_s": 0.24921674404316582
+          },
+          "target_position_rad": 0.666753200748,
+          "max_steps": 300
+        },
+        "seed": 74011
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74012",
+          "initial_state": {
+            "position_rad": -0.7832856903770361,
+            "velocity_rad_s": -0.0040908106132034215
+          },
+          "target_position_rad": 0.5160032013435993,
+          "max_steps": 300
+        },
+        "seed": 74012
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74013",
+          "initial_state": {
+            "position_rad": 0.7919010241356534,
+            "velocity_rad_s": 0.2494358713218755
+          },
+          "target_position_rad": -0.7407186836189025,
+          "max_steps": 300
+        },
+        "seed": 74013
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74014",
+          "initial_state": {
+            "position_rad": -0.41231043870113604,
+            "velocity_rad_s": 0.2344739399874835
+          },
+          "target_position_rad": 0.6300902712554273,
+          "max_steps": 300
+        },
+        "seed": 74014
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74015",
+          "initial_state": {
+            "position_rad": -0.4413796301753687,
+            "velocity_rad_s": 0.2965704110750371
+          },
+          "target_position_rad": 0.459445228454287,
+          "max_steps": 300
+        },
+        "seed": 74015
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74016",
+          "initial_state": {
+            "position_rad": -0.3369307877678138,
+            "velocity_rad_s": 0.31418447682861067
+          },
+          "target_position_rad": 0.45298172045151275,
+          "max_steps": 300
+        },
+        "seed": 74016
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74017",
+          "initial_state": {
+            "position_rad": -0.5009483611132481,
+            "velocity_rad_s": 0.33814484379521026
+          },
+          "target_position_rad": 0.4946162941185141,
+          "max_steps": 300
+        },
+        "seed": 74017
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74018",
+          "initial_state": {
+            "position_rad": -0.3160872263415807,
+            "velocity_rad_s": -0.23682333196754565
+          },
+          "target_position_rad": 0.798469628497408,
+          "max_steps": 300
+        },
+        "seed": 74018
+      },
+      {
+        "condition_id": "nominal",
+        "scenario": {
+          "scenario_id": "nominal-74019",
+          "initial_state": {
+            "position_rad": -0.6905400119739412,
+            "velocity_rad_s": 0.23924026203769233
+          },
+          "target_position_rad": 0.5124533642397743,
+          "max_steps": 300
+        },
+        "seed": 74019
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74000",
+          "initial_state": {
+            "position_rad": 0.2558110877591374,
+            "velocity_rad_s": 0.030404933798627198
+          },
+          "target_position_rad": -0.6848276950222314,
+          "max_steps": 300
+        },
+        "seed": 74000
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74001",
+          "initial_state": {
+            "position_rad": -0.3329422862473795,
+            "velocity_rad_s": 0.18061157817561774
+          },
+          "target_position_rad": 0.4848999530869312,
+          "max_steps": 300
+        },
+        "seed": 74001
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74002",
+          "initial_state": {
+            "position_rad": -0.5157419920185393,
+            "velocity_rad_s": 0.17342200436553185
+          },
+          "target_position_rad": 0.5899834055217753,
+          "max_steps": 300
+        },
+        "seed": 74002
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74003",
+          "initial_state": {
+            "position_rad": 0.3959935960749313,
+            "velocity_rad_s": 0.12574031958053877
+          },
+          "target_position_rad": -0.773544068827577,
+          "max_steps": 300
+        },
+        "seed": 74003
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74004",
+          "initial_state": {
+            "position_rad": 0.3550162955413513,
+            "velocity_rad_s": 0.14449757831197035
+          },
+          "target_position_rad": -0.6849918442008242,
+          "max_steps": 300
+        },
+        "seed": 74004
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74005",
+          "initial_state": {
+            "position_rad": -0.45162004171388603,
+            "velocity_rad_s": -0.26291526151654027
+          },
+          "target_position_rad": 0.7871080951203799,
+          "max_steps": 300
+        },
+        "seed": 74005
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74006",
+          "initial_state": {
+            "position_rad": -0.8087070217050747,
+            "velocity_rad_s": 0.17661356301696748
+          },
+          "target_position_rad": 0.5590890346840317,
+          "max_steps": 300
+        },
+        "seed": 74006
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74007",
+          "initial_state": {
+            "position_rad": 0.4674547811502064,
+            "velocity_rad_s": 0.0328163852678178
+          },
+          "target_position_rad": -0.7228977616744355,
+          "max_steps": 300
+        },
+        "seed": 74007
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74008",
+          "initial_state": {
+            "position_rad": 0.7417101438001246,
+            "velocity_rad_s": -0.056827351674301495
+          },
+          "target_position_rad": -0.4849228791240811,
+          "max_steps": 300
+        },
+        "seed": 74008
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74009",
+          "initial_state": {
+            "position_rad": -0.3540792881060043,
+            "velocity_rad_s": -0.31215917049498465
+          },
+          "target_position_rad": 0.6317063109633252,
+          "max_steps": 300
+        },
+        "seed": 74009
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74010",
+          "initial_state": {
+            "position_rad": 0.30190845623269014,
+            "velocity_rad_s": -0.26514380786944086
+          },
+          "target_position_rad": -0.5506851106694202,
+          "max_steps": 300
+        },
+        "seed": 74010
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74011",
+          "initial_state": {
+            "position_rad": -0.7766669674552624,
+            "velocity_rad_s": 0.24921674404316582
+          },
+          "target_position_rad": 0.666753200748,
+          "max_steps": 300
+        },
+        "seed": 74011
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74012",
+          "initial_state": {
+            "position_rad": -0.7832856903770361,
+            "velocity_rad_s": -0.0040908106132034215
+          },
+          "target_position_rad": 0.5160032013435993,
+          "max_steps": 300
+        },
+        "seed": 74012
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74013",
+          "initial_state": {
+            "position_rad": 0.7919010241356534,
+            "velocity_rad_s": 0.2494358713218755
+          },
+          "target_position_rad": -0.7407186836189025,
+          "max_steps": 300
+        },
+        "seed": 74013
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74014",
+          "initial_state": {
+            "position_rad": -0.41231043870113604,
+            "velocity_rad_s": 0.2344739399874835
+          },
+          "target_position_rad": 0.6300902712554273,
+          "max_steps": 300
+        },
+        "seed": 74014
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74015",
+          "initial_state": {
+            "position_rad": -0.4413796301753687,
+            "velocity_rad_s": 0.2965704110750371
+          },
+          "target_position_rad": 0.459445228454287,
+          "max_steps": 300
+        },
+        "seed": 74015
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74016",
+          "initial_state": {
+            "position_rad": -0.3369307877678138,
+            "velocity_rad_s": 0.31418447682861067
+          },
+          "target_position_rad": 0.45298172045151275,
+          "max_steps": 300
+        },
+        "seed": 74016
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74017",
+          "initial_state": {
+            "position_rad": -0.5009483611132481,
+            "velocity_rad_s": 0.33814484379521026
+          },
+          "target_position_rad": 0.4946162941185141,
+          "max_steps": 300
+        },
+        "seed": 74017
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74018",
+          "initial_state": {
+            "position_rad": -0.3160872263415807,
+            "velocity_rad_s": -0.23682333196754565
+          },
+          "target_position_rad": 0.798469628497408,
+          "max_steps": 300
+        },
+        "seed": 74018
+      },
+      {
+        "condition_id": "heavier",
+        "scenario": {
+          "scenario_id": "heavier-74019",
+          "initial_state": {
+            "position_rad": -0.6905400119739412,
+            "velocity_rad_s": 0.23924026203769233
+          },
+          "target_position_rad": 0.5124533642397743,
+          "max_steps": 300
+        },
+        "seed": 74019
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74000",
+          "initial_state": {
+            "position_rad": 0.2558110877591374,
+            "velocity_rad_s": 0.030404933798627198
+          },
+          "target_position_rad": -0.6848276950222314,
+          "max_steps": 300
+        },
+        "seed": 74000
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74001",
+          "initial_state": {
+            "position_rad": -0.3329422862473795,
+            "velocity_rad_s": 0.18061157817561774
+          },
+          "target_position_rad": 0.4848999530869312,
+          "max_steps": 300
+        },
+        "seed": 74001
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74002",
+          "initial_state": {
+            "position_rad": -0.5157419920185393,
+            "velocity_rad_s": 0.17342200436553185
+          },
+          "target_position_rad": 0.5899834055217753,
+          "max_steps": 300
+        },
+        "seed": 74002
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74003",
+          "initial_state": {
+            "position_rad": 0.3959935960749313,
+            "velocity_rad_s": 0.12574031958053877
+          },
+          "target_position_rad": -0.773544068827577,
+          "max_steps": 300
+        },
+        "seed": 74003
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74004",
+          "initial_state": {
+            "position_rad": 0.3550162955413513,
+            "velocity_rad_s": 0.14449757831197035
+          },
+          "target_position_rad": -0.6849918442008242,
+          "max_steps": 300
+        },
+        "seed": 74004
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74005",
+          "initial_state": {
+            "position_rad": -0.45162004171388603,
+            "velocity_rad_s": -0.26291526151654027
+          },
+          "target_position_rad": 0.7871080951203799,
+          "max_steps": 300
+        },
+        "seed": 74005
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74006",
+          "initial_state": {
+            "position_rad": -0.8087070217050747,
+            "velocity_rad_s": 0.17661356301696748
+          },
+          "target_position_rad": 0.5590890346840317,
+          "max_steps": 300
+        },
+        "seed": 74006
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74007",
+          "initial_state": {
+            "position_rad": 0.4674547811502064,
+            "velocity_rad_s": 0.0328163852678178
+          },
+          "target_position_rad": -0.7228977616744355,
+          "max_steps": 300
+        },
+        "seed": 74007
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74008",
+          "initial_state": {
+            "position_rad": 0.7417101438001246,
+            "velocity_rad_s": -0.056827351674301495
+          },
+          "target_position_rad": -0.4849228791240811,
+          "max_steps": 300
+        },
+        "seed": 74008
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74009",
+          "initial_state": {
+            "position_rad": -0.3540792881060043,
+            "velocity_rad_s": -0.31215917049498465
+          },
+          "target_position_rad": 0.6317063109633252,
+          "max_steps": 300
+        },
+        "seed": 74009
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74010",
+          "initial_state": {
+            "position_rad": 0.30190845623269014,
+            "velocity_rad_s": -0.26514380786944086
+          },
+          "target_position_rad": -0.5506851106694202,
+          "max_steps": 300
+        },
+        "seed": 74010
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74011",
+          "initial_state": {
+            "position_rad": -0.7766669674552624,
+            "velocity_rad_s": 0.24921674404316582
+          },
+          "target_position_rad": 0.666753200748,
+          "max_steps": 300
+        },
+        "seed": 74011
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74012",
+          "initial_state": {
+            "position_rad": -0.7832856903770361,
+            "velocity_rad_s": -0.0040908106132034215
+          },
+          "target_position_rad": 0.5160032013435993,
+          "max_steps": 300
+        },
+        "seed": 74012
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74013",
+          "initial_state": {
+            "position_rad": 0.7919010241356534,
+            "velocity_rad_s": 0.2494358713218755
+          },
+          "target_position_rad": -0.7407186836189025,
+          "max_steps": 300
+        },
+        "seed": 74013
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74014",
+          "initial_state": {
+            "position_rad": -0.41231043870113604,
+            "velocity_rad_s": 0.2344739399874835
+          },
+          "target_position_rad": 0.6300902712554273,
+          "max_steps": 300
+        },
+        "seed": 74014
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74015",
+          "initial_state": {
+            "position_rad": -0.4413796301753687,
+            "velocity_rad_s": 0.2965704110750371
+          },
+          "target_position_rad": 0.459445228454287,
+          "max_steps": 300
+        },
+        "seed": 74015
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74016",
+          "initial_state": {
+            "position_rad": -0.3369307877678138,
+            "velocity_rad_s": 0.31418447682861067
+          },
+          "target_position_rad": 0.45298172045151275,
+          "max_steps": 300
+        },
+        "seed": 74016
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74017",
+          "initial_state": {
+            "position_rad": -0.5009483611132481,
+            "velocity_rad_s": 0.33814484379521026
+          },
+          "target_position_rad": 0.4946162941185141,
+          "max_steps": 300
+        },
+        "seed": 74017
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74018",
+          "initial_state": {
+            "position_rad": -0.3160872263415807,
+            "velocity_rad_s": -0.23682333196754565
+          },
+          "target_position_rad": 0.798469628497408,
+          "max_steps": 300
+        },
+        "seed": 74018
+      },
+      {
+        "condition_id": "friction",
+        "scenario": {
+          "scenario_id": "friction-74019",
+          "initial_state": {
+            "position_rad": -0.6905400119739412,
+            "velocity_rad_s": 0.23924026203769233
+          },
+          "target_position_rad": 0.5124533642397743,
+          "max_steps": 300
+        },
+        "seed": 74019
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74000",
+          "initial_state": {
+            "position_rad": 0.2558110877591374,
+            "velocity_rad_s": 0.030404933798627198
+          },
+          "target_position_rad": -0.6848276950222314,
+          "max_steps": 300
+        },
+        "seed": 74000
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74001",
+          "initial_state": {
+            "position_rad": -0.3329422862473795,
+            "velocity_rad_s": 0.18061157817561774
+          },
+          "target_position_rad": 0.4848999530869312,
+          "max_steps": 300
+        },
+        "seed": 74001
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74002",
+          "initial_state": {
+            "position_rad": -0.5157419920185393,
+            "velocity_rad_s": 0.17342200436553185
+          },
+          "target_position_rad": 0.5899834055217753,
+          "max_steps": 300
+        },
+        "seed": 74002
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74003",
+          "initial_state": {
+            "position_rad": 0.3959935960749313,
+            "velocity_rad_s": 0.12574031958053877
+          },
+          "target_position_rad": -0.773544068827577,
+          "max_steps": 300
+        },
+        "seed": 74003
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74004",
+          "initial_state": {
+            "position_rad": 0.3550162955413513,
+            "velocity_rad_s": 0.14449757831197035
+          },
+          "target_position_rad": -0.6849918442008242,
+          "max_steps": 300
+        },
+        "seed": 74004
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74005",
+          "initial_state": {
+            "position_rad": -0.45162004171388603,
+            "velocity_rad_s": -0.26291526151654027
+          },
+          "target_position_rad": 0.7871080951203799,
+          "max_steps": 300
+        },
+        "seed": 74005
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74006",
+          "initial_state": {
+            "position_rad": -0.8087070217050747,
+            "velocity_rad_s": 0.17661356301696748
+          },
+          "target_position_rad": 0.5590890346840317,
+          "max_steps": 300
+        },
+        "seed": 74006
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74007",
+          "initial_state": {
+            "position_rad": 0.4674547811502064,
+            "velocity_rad_s": 0.0328163852678178
+          },
+          "target_position_rad": -0.7228977616744355,
+          "max_steps": 300
+        },
+        "seed": 74007
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74008",
+          "initial_state": {
+            "position_rad": 0.7417101438001246,
+            "velocity_rad_s": -0.056827351674301495
+          },
+          "target_position_rad": -0.4849228791240811,
+          "max_steps": 300
+        },
+        "seed": 74008
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74009",
+          "initial_state": {
+            "position_rad": -0.3540792881060043,
+            "velocity_rad_s": -0.31215917049498465
+          },
+          "target_position_rad": 0.6317063109633252,
+          "max_steps": 300
+        },
+        "seed": 74009
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74010",
+          "initial_state": {
+            "position_rad": 0.30190845623269014,
+            "velocity_rad_s": -0.26514380786944086
+          },
+          "target_position_rad": -0.5506851106694202,
+          "max_steps": 300
+        },
+        "seed": 74010
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74011",
+          "initial_state": {
+            "position_rad": -0.7766669674552624,
+            "velocity_rad_s": 0.24921674404316582
+          },
+          "target_position_rad": 0.666753200748,
+          "max_steps": 300
+        },
+        "seed": 74011
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74012",
+          "initial_state": {
+            "position_rad": -0.7832856903770361,
+            "velocity_rad_s": -0.0040908106132034215
+          },
+          "target_position_rad": 0.5160032013435993,
+          "max_steps": 300
+        },
+        "seed": 74012
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74013",
+          "initial_state": {
+            "position_rad": 0.7919010241356534,
+            "velocity_rad_s": 0.2494358713218755
+          },
+          "target_position_rad": -0.7407186836189025,
+          "max_steps": 300
+        },
+        "seed": 74013
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74014",
+          "initial_state": {
+            "position_rad": -0.41231043870113604,
+            "velocity_rad_s": 0.2344739399874835
+          },
+          "target_position_rad": 0.6300902712554273,
+          "max_steps": 300
+        },
+        "seed": 74014
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74015",
+          "initial_state": {
+            "position_rad": -0.4413796301753687,
+            "velocity_rad_s": 0.2965704110750371
+          },
+          "target_position_rad": 0.459445228454287,
+          "max_steps": 300
+        },
+        "seed": 74015
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74016",
+          "initial_state": {
+            "position_rad": -0.3369307877678138,
+            "velocity_rad_s": 0.31418447682861067
+          },
+          "target_position_rad": 0.45298172045151275,
+          "max_steps": 300
+        },
+        "seed": 74016
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74017",
+          "initial_state": {
+            "position_rad": -0.5009483611132481,
+            "velocity_rad_s": 0.33814484379521026
+          },
+          "target_position_rad": 0.4946162941185141,
+          "max_steps": 300
+        },
+        "seed": 74017
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74018",
+          "initial_state": {
+            "position_rad": -0.3160872263415807,
+            "velocity_rad_s": -0.23682333196754565
+          },
+          "target_position_rad": 0.798469628497408,
+          "max_steps": 300
+        },
+        "seed": 74018
+      },
+      {
+        "condition_id": "combined",
+        "scenario": {
+          "scenario_id": "combined-74019",
+          "initial_state": {
+            "position_rad": -0.6905400119739412,
+            "velocity_rad_s": 0.23924026203769233
+          },
+          "target_position_rad": 0.5124533642397743,
+          "max_steps": 300
+        },
+        "seed": 74019
+      }
+    ],
+    "planned_attempts": [
+      {
+        "scenario_id": "nominal-74000",
+        "controller_id": "pd",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "nominal-74000",
+        "controller_id": "rk4_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "nominal-74000",
+        "controller_id": "mujoco_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "nominal-74000",
+        "controller_id": "learned_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "nominal-74001",
+        "controller_id": "pd",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "nominal-74001",
+        "controller_id": "rk4_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "nominal-74001",
+        "controller_id": "mujoco_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "nominal-74001",
+        "controller_id": "learned_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "nominal-74002",
+        "controller_id": "pd",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "nominal-74002",
+        "controller_id": "rk4_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "nominal-74002",
+        "controller_id": "mujoco_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "nominal-74002",
+        "controller_id": "learned_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "nominal-74003",
+        "controller_id": "pd",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "nominal-74003",
+        "controller_id": "rk4_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "nominal-74003",
+        "controller_id": "mujoco_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "nominal-74003",
+        "controller_id": "learned_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "nominal-74004",
+        "controller_id": "pd",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "nominal-74004",
+        "controller_id": "rk4_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "nominal-74004",
+        "controller_id": "mujoco_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "nominal-74004",
+        "controller_id": "learned_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "nominal-74005",
+        "controller_id": "pd",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "nominal-74005",
+        "controller_id": "rk4_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "nominal-74005",
+        "controller_id": "mujoco_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "nominal-74005",
+        "controller_id": "learned_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "nominal-74006",
+        "controller_id": "pd",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "nominal-74006",
+        "controller_id": "rk4_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "nominal-74006",
+        "controller_id": "mujoco_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "nominal-74006",
+        "controller_id": "learned_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "nominal-74007",
+        "controller_id": "pd",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "nominal-74007",
+        "controller_id": "rk4_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "nominal-74007",
+        "controller_id": "mujoco_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "nominal-74007",
+        "controller_id": "learned_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "nominal-74008",
+        "controller_id": "pd",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "nominal-74008",
+        "controller_id": "rk4_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "nominal-74008",
+        "controller_id": "mujoco_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "nominal-74008",
+        "controller_id": "learned_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "nominal-74009",
+        "controller_id": "pd",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "nominal-74009",
+        "controller_id": "rk4_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "nominal-74009",
+        "controller_id": "mujoco_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "nominal-74009",
+        "controller_id": "learned_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "nominal-74010",
+        "controller_id": "pd",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "nominal-74010",
+        "controller_id": "rk4_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "nominal-74010",
+        "controller_id": "mujoco_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "nominal-74010",
+        "controller_id": "learned_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "nominal-74011",
+        "controller_id": "pd",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "nominal-74011",
+        "controller_id": "rk4_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "nominal-74011",
+        "controller_id": "mujoco_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "nominal-74011",
+        "controller_id": "learned_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "nominal-74012",
+        "controller_id": "pd",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "nominal-74012",
+        "controller_id": "rk4_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "nominal-74012",
+        "controller_id": "mujoco_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "nominal-74012",
+        "controller_id": "learned_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "nominal-74013",
+        "controller_id": "pd",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "nominal-74013",
+        "controller_id": "rk4_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "nominal-74013",
+        "controller_id": "mujoco_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "nominal-74013",
+        "controller_id": "learned_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "nominal-74014",
+        "controller_id": "pd",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "nominal-74014",
+        "controller_id": "rk4_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "nominal-74014",
+        "controller_id": "mujoco_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "nominal-74014",
+        "controller_id": "learned_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "nominal-74015",
+        "controller_id": "pd",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "nominal-74015",
+        "controller_id": "rk4_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "nominal-74015",
+        "controller_id": "mujoco_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "nominal-74015",
+        "controller_id": "learned_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "nominal-74016",
+        "controller_id": "pd",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "nominal-74016",
+        "controller_id": "rk4_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "nominal-74016",
+        "controller_id": "mujoco_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "nominal-74016",
+        "controller_id": "learned_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "nominal-74017",
+        "controller_id": "pd",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "nominal-74017",
+        "controller_id": "rk4_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "nominal-74017",
+        "controller_id": "mujoco_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "nominal-74017",
+        "controller_id": "learned_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "nominal-74018",
+        "controller_id": "pd",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "nominal-74018",
+        "controller_id": "rk4_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "nominal-74018",
+        "controller_id": "mujoco_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "nominal-74018",
+        "controller_id": "learned_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "nominal-74019",
+        "controller_id": "pd",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "nominal-74019",
+        "controller_id": "rk4_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "nominal-74019",
+        "controller_id": "mujoco_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "nominal-74019",
+        "controller_id": "learned_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "heavier-74000",
+        "controller_id": "pd",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "heavier-74000",
+        "controller_id": "rk4_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "heavier-74000",
+        "controller_id": "mujoco_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "heavier-74000",
+        "controller_id": "learned_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "heavier-74001",
+        "controller_id": "pd",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "heavier-74001",
+        "controller_id": "rk4_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "heavier-74001",
+        "controller_id": "mujoco_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "heavier-74001",
+        "controller_id": "learned_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "heavier-74002",
+        "controller_id": "pd",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "heavier-74002",
+        "controller_id": "rk4_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "heavier-74002",
+        "controller_id": "mujoco_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "heavier-74002",
+        "controller_id": "learned_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "heavier-74003",
+        "controller_id": "pd",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "heavier-74003",
+        "controller_id": "rk4_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "heavier-74003",
+        "controller_id": "mujoco_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "heavier-74003",
+        "controller_id": "learned_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "heavier-74004",
+        "controller_id": "pd",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "heavier-74004",
+        "controller_id": "rk4_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "heavier-74004",
+        "controller_id": "mujoco_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "heavier-74004",
+        "controller_id": "learned_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "heavier-74005",
+        "controller_id": "pd",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "heavier-74005",
+        "controller_id": "rk4_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "heavier-74005",
+        "controller_id": "mujoco_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "heavier-74005",
+        "controller_id": "learned_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "heavier-74006",
+        "controller_id": "pd",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "heavier-74006",
+        "controller_id": "rk4_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "heavier-74006",
+        "controller_id": "mujoco_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "heavier-74006",
+        "controller_id": "learned_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "heavier-74007",
+        "controller_id": "pd",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "heavier-74007",
+        "controller_id": "rk4_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "heavier-74007",
+        "controller_id": "mujoco_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "heavier-74007",
+        "controller_id": "learned_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "heavier-74008",
+        "controller_id": "pd",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "heavier-74008",
+        "controller_id": "rk4_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "heavier-74008",
+        "controller_id": "mujoco_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "heavier-74008",
+        "controller_id": "learned_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "heavier-74009",
+        "controller_id": "pd",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "heavier-74009",
+        "controller_id": "rk4_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "heavier-74009",
+        "controller_id": "mujoco_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "heavier-74009",
+        "controller_id": "learned_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "heavier-74010",
+        "controller_id": "pd",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "heavier-74010",
+        "controller_id": "rk4_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "heavier-74010",
+        "controller_id": "mujoco_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "heavier-74010",
+        "controller_id": "learned_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "heavier-74011",
+        "controller_id": "pd",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "heavier-74011",
+        "controller_id": "rk4_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "heavier-74011",
+        "controller_id": "mujoco_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "heavier-74011",
+        "controller_id": "learned_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "heavier-74012",
+        "controller_id": "pd",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "heavier-74012",
+        "controller_id": "rk4_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "heavier-74012",
+        "controller_id": "mujoco_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "heavier-74012",
+        "controller_id": "learned_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "heavier-74013",
+        "controller_id": "pd",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "heavier-74013",
+        "controller_id": "rk4_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "heavier-74013",
+        "controller_id": "mujoco_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "heavier-74013",
+        "controller_id": "learned_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "heavier-74014",
+        "controller_id": "pd",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "heavier-74014",
+        "controller_id": "rk4_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "heavier-74014",
+        "controller_id": "mujoco_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "heavier-74014",
+        "controller_id": "learned_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "heavier-74015",
+        "controller_id": "pd",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "heavier-74015",
+        "controller_id": "rk4_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "heavier-74015",
+        "controller_id": "mujoco_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "heavier-74015",
+        "controller_id": "learned_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "heavier-74016",
+        "controller_id": "pd",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "heavier-74016",
+        "controller_id": "rk4_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "heavier-74016",
+        "controller_id": "mujoco_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "heavier-74016",
+        "controller_id": "learned_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "heavier-74017",
+        "controller_id": "pd",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "heavier-74017",
+        "controller_id": "rk4_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "heavier-74017",
+        "controller_id": "mujoco_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "heavier-74017",
+        "controller_id": "learned_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "heavier-74018",
+        "controller_id": "pd",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "heavier-74018",
+        "controller_id": "rk4_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "heavier-74018",
+        "controller_id": "mujoco_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "heavier-74018",
+        "controller_id": "learned_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "heavier-74019",
+        "controller_id": "pd",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "heavier-74019",
+        "controller_id": "rk4_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "heavier-74019",
+        "controller_id": "mujoco_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "heavier-74019",
+        "controller_id": "learned_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "friction-74000",
+        "controller_id": "pd",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "friction-74000",
+        "controller_id": "rk4_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "friction-74000",
+        "controller_id": "mujoco_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "friction-74000",
+        "controller_id": "learned_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "friction-74001",
+        "controller_id": "pd",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "friction-74001",
+        "controller_id": "rk4_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "friction-74001",
+        "controller_id": "mujoco_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "friction-74001",
+        "controller_id": "learned_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "friction-74002",
+        "controller_id": "pd",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "friction-74002",
+        "controller_id": "rk4_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "friction-74002",
+        "controller_id": "mujoco_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "friction-74002",
+        "controller_id": "learned_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "friction-74003",
+        "controller_id": "pd",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "friction-74003",
+        "controller_id": "rk4_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "friction-74003",
+        "controller_id": "mujoco_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "friction-74003",
+        "controller_id": "learned_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "friction-74004",
+        "controller_id": "pd",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "friction-74004",
+        "controller_id": "rk4_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "friction-74004",
+        "controller_id": "mujoco_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "friction-74004",
+        "controller_id": "learned_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "friction-74005",
+        "controller_id": "pd",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "friction-74005",
+        "controller_id": "rk4_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "friction-74005",
+        "controller_id": "mujoco_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "friction-74005",
+        "controller_id": "learned_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "friction-74006",
+        "controller_id": "pd",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "friction-74006",
+        "controller_id": "rk4_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "friction-74006",
+        "controller_id": "mujoco_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "friction-74006",
+        "controller_id": "learned_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "friction-74007",
+        "controller_id": "pd",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "friction-74007",
+        "controller_id": "rk4_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "friction-74007",
+        "controller_id": "mujoco_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "friction-74007",
+        "controller_id": "learned_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "friction-74008",
+        "controller_id": "pd",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "friction-74008",
+        "controller_id": "rk4_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "friction-74008",
+        "controller_id": "mujoco_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "friction-74008",
+        "controller_id": "learned_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "friction-74009",
+        "controller_id": "pd",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "friction-74009",
+        "controller_id": "rk4_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "friction-74009",
+        "controller_id": "mujoco_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "friction-74009",
+        "controller_id": "learned_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "friction-74010",
+        "controller_id": "pd",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "friction-74010",
+        "controller_id": "rk4_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "friction-74010",
+        "controller_id": "mujoco_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "friction-74010",
+        "controller_id": "learned_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "friction-74011",
+        "controller_id": "pd",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "friction-74011",
+        "controller_id": "rk4_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "friction-74011",
+        "controller_id": "mujoco_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "friction-74011",
+        "controller_id": "learned_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "friction-74012",
+        "controller_id": "pd",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "friction-74012",
+        "controller_id": "rk4_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "friction-74012",
+        "controller_id": "mujoco_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "friction-74012",
+        "controller_id": "learned_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "friction-74013",
+        "controller_id": "pd",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "friction-74013",
+        "controller_id": "rk4_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "friction-74013",
+        "controller_id": "mujoco_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "friction-74013",
+        "controller_id": "learned_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "friction-74014",
+        "controller_id": "pd",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "friction-74014",
+        "controller_id": "rk4_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "friction-74014",
+        "controller_id": "mujoco_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "friction-74014",
+        "controller_id": "learned_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "friction-74015",
+        "controller_id": "pd",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "friction-74015",
+        "controller_id": "rk4_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "friction-74015",
+        "controller_id": "mujoco_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "friction-74015",
+        "controller_id": "learned_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "friction-74016",
+        "controller_id": "pd",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "friction-74016",
+        "controller_id": "rk4_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "friction-74016",
+        "controller_id": "mujoco_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "friction-74016",
+        "controller_id": "learned_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "friction-74017",
+        "controller_id": "pd",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "friction-74017",
+        "controller_id": "rk4_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "friction-74017",
+        "controller_id": "mujoco_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "friction-74017",
+        "controller_id": "learned_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "friction-74018",
+        "controller_id": "pd",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "friction-74018",
+        "controller_id": "rk4_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "friction-74018",
+        "controller_id": "mujoco_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "friction-74018",
+        "controller_id": "learned_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "friction-74019",
+        "controller_id": "pd",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "friction-74019",
+        "controller_id": "rk4_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "friction-74019",
+        "controller_id": "mujoco_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "friction-74019",
+        "controller_id": "learned_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "combined-74000",
+        "controller_id": "pd",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "combined-74000",
+        "controller_id": "rk4_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "combined-74000",
+        "controller_id": "mujoco_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "combined-74000",
+        "controller_id": "learned_mpc",
+        "seed": 74000
+      },
+      {
+        "scenario_id": "combined-74001",
+        "controller_id": "pd",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "combined-74001",
+        "controller_id": "rk4_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "combined-74001",
+        "controller_id": "mujoco_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "combined-74001",
+        "controller_id": "learned_mpc",
+        "seed": 74001
+      },
+      {
+        "scenario_id": "combined-74002",
+        "controller_id": "pd",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "combined-74002",
+        "controller_id": "rk4_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "combined-74002",
+        "controller_id": "mujoco_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "combined-74002",
+        "controller_id": "learned_mpc",
+        "seed": 74002
+      },
+      {
+        "scenario_id": "combined-74003",
+        "controller_id": "pd",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "combined-74003",
+        "controller_id": "rk4_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "combined-74003",
+        "controller_id": "mujoco_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "combined-74003",
+        "controller_id": "learned_mpc",
+        "seed": 74003
+      },
+      {
+        "scenario_id": "combined-74004",
+        "controller_id": "pd",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "combined-74004",
+        "controller_id": "rk4_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "combined-74004",
+        "controller_id": "mujoco_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "combined-74004",
+        "controller_id": "learned_mpc",
+        "seed": 74004
+      },
+      {
+        "scenario_id": "combined-74005",
+        "controller_id": "pd",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "combined-74005",
+        "controller_id": "rk4_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "combined-74005",
+        "controller_id": "mujoco_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "combined-74005",
+        "controller_id": "learned_mpc",
+        "seed": 74005
+      },
+      {
+        "scenario_id": "combined-74006",
+        "controller_id": "pd",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "combined-74006",
+        "controller_id": "rk4_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "combined-74006",
+        "controller_id": "mujoco_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "combined-74006",
+        "controller_id": "learned_mpc",
+        "seed": 74006
+      },
+      {
+        "scenario_id": "combined-74007",
+        "controller_id": "pd",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "combined-74007",
+        "controller_id": "rk4_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "combined-74007",
+        "controller_id": "mujoco_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "combined-74007",
+        "controller_id": "learned_mpc",
+        "seed": 74007
+      },
+      {
+        "scenario_id": "combined-74008",
+        "controller_id": "pd",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "combined-74008",
+        "controller_id": "rk4_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "combined-74008",
+        "controller_id": "mujoco_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "combined-74008",
+        "controller_id": "learned_mpc",
+        "seed": 74008
+      },
+      {
+        "scenario_id": "combined-74009",
+        "controller_id": "pd",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "combined-74009",
+        "controller_id": "rk4_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "combined-74009",
+        "controller_id": "mujoco_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "combined-74009",
+        "controller_id": "learned_mpc",
+        "seed": 74009
+      },
+      {
+        "scenario_id": "combined-74010",
+        "controller_id": "pd",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "combined-74010",
+        "controller_id": "rk4_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "combined-74010",
+        "controller_id": "mujoco_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "combined-74010",
+        "controller_id": "learned_mpc",
+        "seed": 74010
+      },
+      {
+        "scenario_id": "combined-74011",
+        "controller_id": "pd",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "combined-74011",
+        "controller_id": "rk4_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "combined-74011",
+        "controller_id": "mujoco_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "combined-74011",
+        "controller_id": "learned_mpc",
+        "seed": 74011
+      },
+      {
+        "scenario_id": "combined-74012",
+        "controller_id": "pd",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "combined-74012",
+        "controller_id": "rk4_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "combined-74012",
+        "controller_id": "mujoco_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "combined-74012",
+        "controller_id": "learned_mpc",
+        "seed": 74012
+      },
+      {
+        "scenario_id": "combined-74013",
+        "controller_id": "pd",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "combined-74013",
+        "controller_id": "rk4_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "combined-74013",
+        "controller_id": "mujoco_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "combined-74013",
+        "controller_id": "learned_mpc",
+        "seed": 74013
+      },
+      {
+        "scenario_id": "combined-74014",
+        "controller_id": "pd",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "combined-74014",
+        "controller_id": "rk4_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "combined-74014",
+        "controller_id": "mujoco_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "combined-74014",
+        "controller_id": "learned_mpc",
+        "seed": 74014
+      },
+      {
+        "scenario_id": "combined-74015",
+        "controller_id": "pd",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "combined-74015",
+        "controller_id": "rk4_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "combined-74015",
+        "controller_id": "mujoco_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "combined-74015",
+        "controller_id": "learned_mpc",
+        "seed": 74015
+      },
+      {
+        "scenario_id": "combined-74016",
+        "controller_id": "pd",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "combined-74016",
+        "controller_id": "rk4_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "combined-74016",
+        "controller_id": "mujoco_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "combined-74016",
+        "controller_id": "learned_mpc",
+        "seed": 74016
+      },
+      {
+        "scenario_id": "combined-74017",
+        "controller_id": "pd",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "combined-74017",
+        "controller_id": "rk4_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "combined-74017",
+        "controller_id": "mujoco_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "combined-74017",
+        "controller_id": "learned_mpc",
+        "seed": 74017
+      },
+      {
+        "scenario_id": "combined-74018",
+        "controller_id": "pd",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "combined-74018",
+        "controller_id": "rk4_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "combined-74018",
+        "controller_id": "mujoco_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "combined-74018",
+        "controller_id": "learned_mpc",
+        "seed": 74018
+      },
+      {
+        "scenario_id": "combined-74019",
+        "controller_id": "pd",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "combined-74019",
+        "controller_id": "rk4_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "combined-74019",
+        "controller_id": "mujoco_mpc",
+        "seed": 74019
+      },
+      {
+        "scenario_id": "combined-74019",
+        "controller_id": "learned_mpc",
+        "seed": 74019
+      }
+    ],
+    "planned_runs": [
+      {
+        "run_id": "fixed-work-01",
+        "mode": "fixed-work",
+        "repetition": 1,
+        "deadline_ns": null
+      },
+      {
+        "run_id": "fixed-work-02",
+        "mode": "fixed-work",
+        "repetition": 2,
+        "deadline_ns": null
+      },
+      {
+        "run_id": "deadline-discard-01",
+        "mode": "deadline-discard",
+        "repetition": 1,
+        "deadline_ns": 10000000
+      }
+    ],
+    "config": {
+      "schema_version": 1,
+      "purpose": "held_out",
+      "steps": 300,
+      "deadline_ns": 10000000,
+      "fixed_work_repeats": 2,
+      "deadline_repeats": 1,
+      "pd": {
+        "kp": 2.0,
+        "kd": 1.3
+      },
+      "mpc": {
+        "optimizer": "random_shooting",
+        "horizon": 30,
+        "candidate_count": 16,
+        "weights": {
+          "position": 1.0,
+          "velocity": 0.1,
+          "effort": 0.002,
+          "terminal_position": 20.0
+        }
+      },
+      "metrics": {
+        "position_tolerance_rad": 0.05,
+        "velocity_tolerance_rad_s": 0.1,
+        "hold_steps": 25
+      },
+      "acceptance": {
+        "hold_noninferiority_percentage_points": 5,
+        "nominal_truth_failures_max": 0,
+        "action_ready_p99_ms_max": 10,
+        "minimum_paired_improvement_percent": 10,
+        "minimum_joint_success_pairs": 10
+      },
+      "roster": {
+        "generation_seed": 17409,
+        "seeds": [
+          74000,
+          74001,
+          74002,
+          74003,
+          74004,
+          74005,
+          74006,
+          74007,
+          74008,
+          74009,
+          74010,
+          74011,
+          74012,
+          74013,
+          74014,
+          74015,
+          74016,
+          74017,
+          74018,
+          74019
+        ],
+        "initial_position_magnitude_rad": [
+          0.25,
+          0.85
+        ],
+        "initial_velocity_rad_s": [
+          -0.35,
+          0.35
+        ],
+        "target_position_magnitude_rad": [
+          0.45,
+          0.8
+        ]
+      },
+      "conditions": [
+        {
+          "id": "nominal",
+          "link_mass_kg": 1.0,
+          "frictionloss_nm": 0.0
+        },
+        {
+          "id": "heavier",
+          "link_mass_kg": 1.35,
+          "frictionloss_nm": 0.0
+        },
+        {
+          "id": "friction",
+          "link_mass_kg": 1.0,
+          "frictionloss_nm": 0.12
+        },
+        {
+          "id": "combined",
+          "link_mass_kg": 1.35,
+          "frictionloss_nm": 0.12
+        }
+      ]
+    },
+    "config_sha256": "b66b258af175bf2d6b0c40540f156d14a0a07d154e04b7e6b225448765c662bc",
+    "implementation_objects": {
+      "pyproject.toml": "41e704ca7a5713c4a795a2c5d39b121e0ef853b4",
+      "uv.lock": "08302eb38b3a25bf01ea5e1c544e5e2427e2fd6e",
+      "experiments/01-feedback-control/src": "7e2b5cc2d57a103e809ccaeecff9b83222a10368",
+      "experiments/02-state-transition-dataset/src": "1287fb6e643b53862dc8285923cd832c6d40caba",
+      "experiments/02-state-transition-dataset/data/dataset-v1": "a972b580606e1babed846634a7852b646c772757",
+      "experiments/03-forward-dynamics/src": "fcc41e8f1ca2ae7adb37ba0db96633f11f7807f8",
+      "experiments/04-learned-dynamics/src": "bc3fc8b8424fbb435d09a7c07ce5bee2e1c896b8",
+      "experiments/05-model-predictive-control/src": "07bb8f6f8823d3d3d277f697d4218420a12f701d",
+      "experiments/05-model-predictive-control/scripts/run_predictor_comparison.py": "0f830e9a05fd3c9df9bada8c3213740750542bd3",
+      "experiments/05-model-predictive-control/scripts/audit_predictor_comparison.py": "e962778ff23ba92d2e11c629f870e9af8a288d56",
+      "experiments/05-model-predictive-control/README.md": "fd5f95a9fd971881f5acb2023faa44303727c195"
+    }
+  }
+}

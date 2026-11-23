@@ -2,6 +2,7 @@
 import hashlib
 import math
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 import mujoco
 
@@ -11,12 +12,23 @@ from model_predictive_control.contracts import PHYSICS_INTERVAL_S, POSITION_LIMI
 
 
 class MujocoPlant:
-    def __init__(self, model_path: Path) -> None:
+    def __init__(self, model_path: Path, *, link_mass_kg: float = 1.0,
+                 frictionloss_nm: float = 0.0) -> None:
         content = model_path.resolve().read_bytes()
         if hashlib.sha256(content).hexdigest() != MODEL_SHA256:
             raise ValueError("unsupported model checksum")
+        validate_finite_scalar("link_mass_kg", link_mass_kg)
+        validate_finite_scalar("frictionloss_nm", frictionloss_nm)
+        if link_mass_kg <= 0 or frictionloss_nm < 0:
+            raise ValueError("link mass must be positive and friction loss nonnegative")
         if mujoco.__version__ != MUJOCO_VERSION:
             raise ValueError("unsupported MuJoCo version")
+        if link_mass_kg != 1.0 or frictionloss_nm != 0.0:
+            root = ET.fromstring(content)
+            root.find(".//geom[@name='arm_link']").set("mass", str(float(link_mass_kg)))
+            root.find(".//joint[@name='hinge']").set("frictionloss", str(float(frictionloss_nm)))
+            content = ET.tostring(root, encoding="utf-8")
+        self.model_sha256 = hashlib.sha256(content).hexdigest()
         self._model = mujoco.MjModel.from_xml_string(content.decode("utf-8"))
         self._model.opt.disableflags |= int(mujoco.mjtDisableBit.mjDSBL_AUTORESET)
         if (self._model.nq, self._model.nv, self._model.nu, self._model.na) != (1, 1, 1, 0):

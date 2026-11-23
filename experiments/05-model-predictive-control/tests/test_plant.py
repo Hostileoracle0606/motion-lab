@@ -46,3 +46,49 @@ def test_unstable_velocity_cannot_silently_reset_to_success(tmp_path, monkeypatc
     assert step.termination == 'invalid_state'
     assert step.next_state is None
     assert step.physics_steps == 1
+
+
+def test_model_checksum_and_perturbed_dynamics():
+    import hashlib
+
+    nominal = MujocoPlant(XML)
+    explicit = MujocoPlant(XML, link_mass_kg=1.0, frictionloss_nm=0.0)
+    changed = MujocoPlant(XML, link_mass_kg=1.5, frictionloss_nm=0.2)
+    repeated = MujocoPlant(XML, link_mass_kg=1.5, frictionloss_nm=0.2)
+    assert nominal.model_sha256 == hashlib.sha256(XML.read_bytes()).hexdigest()
+    assert explicit.model_sha256 == nominal.model_sha256
+    assert changed.model_sha256 == repeated.model_sha256 != nominal.model_sha256
+    for plant in (nominal, explicit, changed):
+        plant.reset(DynamicsState(0, 0))
+    nominal_step = nominal.advance(1.2)
+    assert explicit.advance(1.2) == nominal_step
+    assert changed.advance(1.2).next_state != nominal_step.next_state
+
+
+@pytest.mark.parametrize('parameters', [
+    {'link_mass_kg': 1.5}, {'frictionloss_nm': 0.2},
+])
+def test_each_perturbation_changes_dynamics(parameters):
+    nominal = MujocoPlant(XML)
+    changed = MujocoPlant(XML, **parameters)
+    for plant in (nominal, changed):
+        plant.reset(DynamicsState(0, 0))
+    assert changed.advance(1.2).next_state != nominal.advance(1.2).next_state
+
+
+@pytest.mark.parametrize('name, value', [
+    ('link_mass_kg', 0), ('link_mass_kg', -1), ('link_mass_kg', True),
+    ('link_mass_kg', float('nan')), ('link_mass_kg', float('inf')),
+    ('frictionloss_nm', -1), ('frictionloss_nm', False),
+    ('frictionloss_nm', float('nan')), ('frictionloss_nm', float('inf')),
+])
+def test_rejects_invalid_perturbations(name, value):
+    with pytest.raises(ValueError):
+        MujocoPlant(XML, **{name: value})
+
+
+def test_perturbation_does_not_bypass_input_checksum(tmp_path):
+    altered = tmp_path / 'altered.xml'
+    altered.write_bytes(XML.read_bytes() + b'\n')
+    with pytest.raises(ValueError, match='checksum'):
+        MujocoPlant(altered, link_mass_kg=1.5)
