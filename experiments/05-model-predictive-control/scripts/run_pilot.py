@@ -26,6 +26,16 @@ def git(*arguments: str) -> str:
     ).strip()
 
 
+def cpu_model() -> str:
+    if platform.system() == "Darwin":
+        result = subprocess.run(
+            ["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    return "unknown"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=EXPERIMENT / "configs/pilot-v1.toml")
@@ -54,7 +64,7 @@ def main() -> None:
         "deadline_ns": args.deadline_ns,
         "platform": platform.platform(),
         "machine": platform.machine(),
-        "cpu": platform.processor(),
+        "cpu_model": cpu_model(),
         "python": platform.python_version(),
         "mujoco": mujoco.__version__,
         "numpy": np.__version__,
