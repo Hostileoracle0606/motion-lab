@@ -49,3 +49,27 @@ the held-out benchmark, where targets, tolerances, compute budgets and the
 threshold for a useful improvement will be locked before evaluation.
 The [pilot report](results/pilot-v1.md) records the observed outcomes and
 the proposed gates for the next comparison.
+
+## Matched optimizer development comparison
+
+Run both optimizers with the analytical RK4 predictor using the same
+configuration, candidate count, horizon, objective, and initial conditions:
+
+```sh
+uv run --locked python experiments/05-model-predictive-control/scripts/run_pilot.py \
+  --config experiments/05-model-predictive-control/configs/optimizer-comparison-v1.toml \
+  --output /tmp/motion-lab-mpc-optimizers
+```
+
+Use a second fresh output with `--deadline-ns 10000000` for the
+deadline-discard comparison. The fixed-work mode measures behavior at a
+matched search budget. The deadline-discard mode records how often an
+overdue plan gives way to PD fallback.
+
+Random shooting evaluates all 16 sequences sampled uniformly. CEM starts
+with eight uniform sequences, then samples eight bounded sequences from a
+distribution fit to the best feasible candidates from the initial batch.
+Each optimizer begins with a separate generator seeded with the paired
+case's seed. Both use 30 model steps per valid candidate. The raw evidence
+records candidate slots, rejected sequences and actual predictor calls for
+each decision. A rejected sequence can consume fewer than 30 calls.

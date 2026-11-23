@@ -1,0 +1,63 @@
+schema_version = 1
+target_position_rad = 0.6
+steps = 300
+
+[pd]
+kp = 2.0
+kd = 1.3
+
+[mpc]
+horizon = 30
+candidate_count = 16
+
+[mpc.cem]
+iterations = 2
+elite_count = 3
+min_std_nm = 0.25
+
+[mpc.weights]
+position = 1.0
+velocity = 0.10
+effort = 0.002
+terminal_position = 20.0
+
+[metrics]
+position_tolerance_rad = 0.05
+velocity_tolerance_rad_s = 0.10
+hold_steps = 25
+
+[[scenarios]]
+scenario_id = "rest-105"
+position_rad = -0.6
+velocity_rad_s = 0.0
+seed = 105
+
+[[scenarios]]
+scenario_id = "rest-106"
+position_rad = -0.6
+velocity_rad_s = 0.0
+seed = 106
+
+[[scenarios]]
+scenario_id = "rest-107"
+position_rad = -0.6
+velocity_rad_s = 0.0
+seed = 107
+
+[[scenarios]]
+scenario_id = "moving-105"
+position_rad = -0.3
+velocity_rad_s = 0.6
+seed = 105
+
+[[scenarios]]
+scenario_id = "moving-106"
+position_rad = -0.3
+velocity_rad_s = 0.6
+seed = 106
+
+[[scenarios]]
+scenario_id = "moving-107"
+position_rad = -0.3
+velocity_rad_s = 0.6
+seed = 107

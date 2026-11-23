@@ -54,7 +54,8 @@ def main() -> None:
         "source_commit": git("rev-parse", "HEAD"),
         "config_sha256": hashlib.sha256(config_bytes).hexdigest(),
         "config": config,
-        "scope": "nominal_one_link_development",
+        "scope": ("nominal_optimizer_development" if "cem" in config["mpc"]
+                  else "nominal_one_link_development"),
         "truth_model_sha256": hashlib.sha256(MODEL.read_bytes()).hexdigest(),
         "truth_auto_reset": False,
         "predictor_context": asdict(NOMINAL_CONTEXT),

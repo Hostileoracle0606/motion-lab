@@ -12,6 +12,7 @@ import numpy as np
 from forward_dynamics.analytical import AnalyticalRK4Predictor
 from forward_dynamics.plant import expected_plant_parameters
 from forward_dynamics.types import DynamicsState
+from model_predictive_control.cem import plan_cem
 from model_predictive_control.closed_loop import PDController, run_episode
 from model_predictive_control.contracts import (
     NOMINAL_CONTEXT, PHYSICS_INTERVAL_S, ControlDecision, EpisodeRecord, Scenario,
@@ -30,7 +31,7 @@ def run_pilot(
 def _iter_pilot(
     config: dict, model_path: Path, *, deadline_ns: int | None,
 ) -> Iterator[EpisodeRecord]:
-    """Run both controllers from the same reset and scenario seed."""
+    """Run configured controllers from the same reset and scenario seed."""
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         raise ValueError("expected pilot configuration schema_version 1")
     setups = config["scenarios"]
@@ -45,25 +46,45 @@ def _iter_pilot(
     weights = CostWeights(**mpc["weights"])
     for setup in setups:
         seed = setup["seed"]
-        rng = np.random.default_rng(seed)
         scenario = Scenario(
             setup["scenario_id"], DynamicsState(setup["position_rad"], setup["velocity_rad_s"]),
             config["target_position_rad"], config["steps"],
         )
 
-        def mpc_controller(state: DynamicsState, target: float) -> ControlDecision:
-            proposal = plan(
-                predictor, NOMINAL_CONTEXT, state, target, weights,
-                horizon=mpc["horizon"], candidate_count=mpc["candidate_count"], rng=rng,
-            )
-            torque = proposal.actions_nm[0] if proposal.actions_nm is not None else None
-            return ControlDecision(torque, proposal.predictor_calls)
-
-        for controller_id, controller in (("pd", pd), ("rk4_mpc", mpc_controller)):
+        shooting = _planning_controller(plan, predictor, weights, mpc, seed, {})
+        controllers = [("pd", pd), ("rk4_mpc", shooting)]
+        if "cem" in mpc:
+            cem = _planning_controller(plan_cem, predictor, weights, mpc, seed, mpc["cem"])
+            controllers.append(("rk4_cem", cem))
+        for controller_id, controller in controllers:
             yield run_episode(
                 plant, scenario, controller, controller_id=controller_id, seed=seed,
                 fallback=pd, deadline_ns=deadline_ns,
             )
+
+
+def _planning_controller(optimizer, predictor, weights, mpc, seed, parameters):
+    rng = np.random.default_rng(seed)
+
+    def choose(state: DynamicsState, target: float) -> ControlDecision:
+        proposal = optimizer(
+            predictor, NOMINAL_CONTEXT, state, target, weights,
+            horizon=mpc["horizon"], candidate_count=mpc["candidate_count"], rng=rng,
+            **parameters,
+        )
+        torque = proposal.actions_nm[0] if proposal.actions_nm is not None else None
+        return ControlDecision(
+            torque, proposal.predictor_calls, proposal.candidates,
+            proposal.candidates - proposal.feasible_candidates,
+        )
+
+    return choose
+
+
+def _controller_ids(config: dict) -> tuple[str, ...]:
+    if "cem" in config["mpc"]:
+        return ("pd", "rk4_mpc", "rk4_cem")
+    return ("pd", "rk4_mpc")
 
 
 def run_recorded_pilot(
@@ -73,7 +94,7 @@ def run_recorded_pilot(
     """Preserve completed episodes as they finish and propagate unexpected errors."""
     output.mkdir(parents=True, exist_ok=False)
     status_path = output / "run-status.json"
-    expected = 2 * len(config["scenarios"])
+    expected = len(_controller_ids(config)) * len(config["scenarios"])
     _write_json(status_path, {"status": "in_progress", "expected_episodes": expected})
     records = []
     try:
@@ -110,7 +131,7 @@ def write_evidence(
 
 def _write_results(output: Path, config: dict, records: tuple[EpisodeRecord, ...]) -> None:
     cohorts = []
-    for controller_id in ("pd", "rk4_mpc"):
+    for controller_id in _controller_ids(config):
         selected = (record for record in records if record.controller_id == controller_id)
         cohorts.append(asdict(summarize_cohort(selected, **config["metrics"])))
     _write_json(output / "episodes.json", {"episodes": [asdict(record) for record in records]})
