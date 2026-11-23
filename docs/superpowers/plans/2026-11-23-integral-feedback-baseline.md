@@ -36,4 +36,4 @@ rule. Report paired uncertainty alongside each result.
 
 - [x] Inspect archived traces and verify integral update behavior.
 - [x] Tune on calibration starts and commit the selected settings.
-- [ ] Run, audit, and report the fresh comparison.
+- [x] Run, audit, and report the fresh comparison.
