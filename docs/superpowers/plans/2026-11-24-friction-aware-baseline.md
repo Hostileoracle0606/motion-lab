@@ -37,5 +37,5 @@ torque effort, terminal error, and timing for all arms. The scope is
 one friction setting in one simulator.
 
 - [x] Verify the analytical predictor's transitions and batch behavior.
-- [ ] Record the preflight grid and the 100-case run from committed source.
-- [ ] Audit raw episodes and compare matched-case performance.
+- [x] Record the preflight grid and the 100-case run from committed source.
+- [x] Audit raw episodes and compare matched-case performance.
