@@ -101,5 +101,5 @@ last journal row without a newline is omitted from forensic counts and flagged
 as truncated, even if its JSON parses; it cannot support final evidence. Keep
 the original folder for investigation and run again in a fresh output folder;
 do not append to or silently repair a partial run. Completed records remain
-available for inspection but incomplete runs cannot publish ordinary summaries.
+available for inspection, and incomplete runs cannot be accepted as final evidence.
 The held-out protocol must cite this policy before the study starts.
