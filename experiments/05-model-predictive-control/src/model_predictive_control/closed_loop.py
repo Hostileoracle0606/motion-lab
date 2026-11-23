@@ -1,0 +1,77 @@
+"""Controller-independent receding-horizon truth execution."""
+from dataclasses import dataclass
+import time
+
+from feedback_control.controllers import pd_control
+from forward_dynamics.types import validate_finite_scalar
+from model_predictive_control.contracts import (
+    ControlDecision, EpisodeRecord, StepRecord, TORQUE_LIMIT_NM, POSITION_LIMIT_RAD,
+)
+
+
+@dataclass(frozen=True)
+class PDController:
+    kp: float
+    kd: float
+
+    def __call__(self, state, target_position_rad):
+        result = pd_control(target_position=target_position_rad, position=state.position_rad,
+                            velocity=state.velocity_rad_s, kp=self.kp, kd=self.kd,
+                            torque_limit=TORQUE_LIMIT_NM)
+        return ControlDecision(result.raw_torque)
+
+
+def _valid_request(value):
+    try:
+        validate_finite_scalar("requested torque", value)
+    except ValueError:
+        return False
+    return True
+
+
+def run_episode(plant, scenario, controller, *, controller_id, seed, fallback,
+                deadline_ns=None, clock_ns=time.perf_counter_ns):
+    validate_finite_scalar("target_position_rad", scenario.target_position_rad)
+    if abs(float(scenario.target_position_rad)) > POSITION_LIMIT_RAD:
+        raise ValueError("target_position_rad exceeds joint limit")
+    if scenario.max_steps <= 0:
+        raise ValueError("max_steps must be positive")
+    if deadline_ns is not None and deadline_ns < 0:
+        raise ValueError("deadline_ns must be nonnegative")
+    state = plant.reset(scenario.initial_state)
+    steps = []
+    termination = "time_limit"
+    for _ in range(scenario.max_steps):
+        start = clock_ns()
+        decision = controller(state, scenario.target_position_rad)
+        elapsed = clock_ns() - start
+        request = decision.requested_torque_nm
+        valid = _valid_request(request)
+        recorded = float(request) if valid else None
+        missed = deadline_ns is not None and elapsed > deadline_ns
+        reason = ("deadline" if missed else "no_plan" if request is None else
+                  "invalid_command" if not valid else None)
+        calls = decision.predictor_calls
+        selected = recorded
+        action_ready = elapsed
+        if reason is not None:
+            if fallback is None:
+                raise ValueError("fallback must provide a finite torque")
+            fallback_decision = fallback(state, scenario.target_position_rad)
+            action_ready = clock_ns() - start
+            if not isinstance(fallback_decision, ControlDecision):
+                raise ValueError("fallback must provide a decision with finite torque")
+            calls += fallback_decision.predictor_calls
+            if not _valid_request(fallback_decision.requested_torque_nm):
+                raise ValueError("fallback must provide a finite torque")
+            selected = float(fallback_decision.requested_torque_nm)
+        applied = max(-TORQUE_LIMIT_NM, min(TORQUE_LIMIT_NM, selected))
+        plant_step = plant.advance(applied)
+        steps.append(StepRecord(state, plant_step.next_state, recorded, applied,
+                                plant_step.physics_steps, elapsed, calls, missed,
+                                reason, applied != selected, selected, action_ready))
+        if plant_step.termination is not None:
+            termination = plant_step.termination
+            break
+        state = plant_step.next_state
+    return EpisodeRecord(scenario, controller_id, seed, tuple(steps), termination)

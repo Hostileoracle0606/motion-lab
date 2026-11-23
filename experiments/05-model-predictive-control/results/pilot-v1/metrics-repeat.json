@@ -1,0 +1,117 @@
+{
+  "cohorts": [
+    {
+      "controller_id": "pd",
+      "episode_count": 2,
+      "successes": 2,
+      "success_rate": 1.0,
+      "terminations": [
+        [
+          "time_limit",
+          2
+        ]
+      ],
+      "episodes": [
+        {
+          "scenario_id": "rest",
+          "controller_id": "pd",
+          "seed": 105,
+          "tracking_rmse_rad": 0.4505506096928561,
+          "effort_nm2_s": 0.5165970658124938,
+          "peak_overshoot_rad": 0.0,
+          "final_error_rad": 0.0014601245315741807,
+          "success": true,
+          "settling_time_s": 1.7600000000000013,
+          "termination": "time_limit",
+          "completed_decisions": 300,
+          "saturation_count": 0,
+          "fallback_count": 0,
+          "deadline_miss_count": 0,
+          "predictor_calls": 0,
+          "decision_time_p50_ms": 0.0025,
+          "decision_time_p99_ms": 0.02731407999999998,
+          "action_ready_time_p50_ms": 0.0025,
+          "action_ready_time_p99_ms": 0.02731407999999998
+        },
+        {
+          "scenario_id": "moving",
+          "controller_id": "pd",
+          "seed": 106,
+          "tracking_rmse_rad": 0.3083162525420209,
+          "effort_nm2_s": 0.10042465590414998,
+          "peak_overshoot_rad": 0.0,
+          "final_error_rad": 0.0008696955696038122,
+          "success": true,
+          "settling_time_s": 1.5600000000000012,
+          "termination": "time_limit",
+          "completed_decisions": 300,
+          "saturation_count": 0,
+          "fallback_count": 0,
+          "deadline_miss_count": 0,
+          "predictor_calls": 0,
+          "decision_time_p50_ms": 0.002417,
+          "decision_time_p99_ms": 0.005042259999999999,
+          "action_ready_time_p50_ms": 0.002417,
+          "action_ready_time_p99_ms": 0.005042259999999999
+        }
+      ]
+    },
+    {
+      "controller_id": "rk4_mpc",
+      "episode_count": 2,
+      "successes": 0,
+      "success_rate": 0.0,
+      "terminations": [
+        [
+          "time_limit",
+          2
+        ]
+      ],
+      "episodes": [
+        {
+          "scenario_id": "rest",
+          "controller_id": "rk4_mpc",
+          "seed": 105,
+          "tracking_rmse_rad": 0.44768694639982115,
+          "effort_nm2_s": 8.885729771027739,
+          "peak_overshoot_rad": 0.016310691519396125,
+          "final_error_rad": -0.000988640134466312,
+          "success": false,
+          "settling_time_s": null,
+          "termination": "time_limit",
+          "completed_decisions": 300,
+          "saturation_count": 0,
+          "fallback_count": 0,
+          "deadline_miss_count": 0,
+          "predictor_calls": 144000,
+          "decision_time_p50_ms": 6.5073125,
+          "decision_time_p99_ms": 9.4916975,
+          "action_ready_time_p50_ms": 6.5073125,
+          "action_ready_time_p99_ms": 9.4916975
+        },
+        {
+          "scenario_id": "moving",
+          "controller_id": "rk4_mpc",
+          "seed": 106,
+          "tracking_rmse_rad": 0.25658956409401573,
+          "effort_nm2_s": 8.94744510586132,
+          "peak_overshoot_rad": 0.09310684144682957,
+          "final_error_rad": 0.005223049687316461,
+          "success": false,
+          "settling_time_s": null,
+          "termination": "time_limit",
+          "completed_decisions": 300,
+          "saturation_count": 0,
+          "fallback_count": 0,
+          "deadline_miss_count": 0,
+          "predictor_calls": 144000,
+          "decision_time_p50_ms": 6.7695834999999995,
+          "decision_time_p99_ms": 26.56046016999997,
+          "action_ready_time_p50_ms": 6.7695834999999995,
+          "action_ready_time_p99_ms": 26.56046016999997
+        }
+      ]
+    }
+  ],
+  "schema_version": 1
+}
