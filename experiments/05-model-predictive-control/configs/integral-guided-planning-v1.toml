@@ -1,0 +1,41 @@
+correction_limit_nm = 0.25
+correction_block_steps = 5
+minimum_relative_improvement = 0.02
+minimum_tracking_gain = 0.10
+maximum_effort_increase = 0.05
+minimum_timely_fraction = 0.99
+
+[fixed]
+first_seed = 75150
+case_count = 40
+generation_seed = 17700
+
+[tracking]
+steps = 400
+first_seed = 75200
+case_count = 40
+generation_seed = 17701
+amplitude_rad = [0.30, 0.50]
+period_s = [2.2, 3.4]
+initial_position_error_rad = [-0.18, 0.18]
+initial_velocity_error_rad_s = [-0.12, 0.12]
+
+[confirmation]
+first_seed = 75400
+case_count = 40
+generation_seed = 17702
+
+[[tracking_conditions]]
+id = "nominal"
+link_mass_kg = 1.0
+frictionloss_nm = 0.0
+
+[[tracking_conditions]]
+id = "payload"
+link_mass_kg = 1.35
+frictionloss_nm = 0.0
+
+[[tracking_conditions]]
+id = "payload_friction"
+link_mass_kg = 1.35
+frictionloss_nm = 0.12

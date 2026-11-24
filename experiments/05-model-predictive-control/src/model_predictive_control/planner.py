@@ -1,5 +1,6 @@
 """Random-shooting planning over bounded, open-loop torque sequences."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import math
 from numbers import Integral
@@ -10,7 +11,7 @@ from forward_dynamics.types import (
     DynamicsContext, DynamicsState, Predictor, validate_finite_scalar,
     validate_prediction_inputs, validate_state,
 )
-from model_predictive_control.contracts import POSITION_LIMIT_RAD, PlanResult
+from model_predictive_control.contracts import Controller, POSITION_LIMIT_RAD, PlanResult
 
 
 @dataclass(frozen=True)
@@ -19,9 +20,10 @@ class CostWeights:
     velocity: float
     effort: float
     terminal_position: float
+    terminal_velocity: float = 0.0
 
     def __post_init__(self) -> None:
-        for name in ("position", "velocity", "effort", "terminal_position"):
+        for name in ("position", "velocity", "effort", "terminal_position", "terminal_velocity"):
             value = getattr(self, name)
             validate_finite_scalar(name, value)
             if value < 0:
@@ -37,11 +39,10 @@ def score_candidates(
     return result
 
 
-def _score_batch(
-    predictor: Predictor, context: DynamicsContext, state: DynamicsState,
-    target_position_rad: float, weights: CostWeights, candidates_nm: np.ndarray,
-) -> tuple[PlanResult, list[tuple[int, float]]]:
-    """Return the public result and feasible candidate indices and costs."""
+def _validated_candidates(
+    context: DynamicsContext, state: DynamicsState, target_position_rad: float,
+    weights: CostWeights, candidates_nm: np.ndarray,
+) -> np.ndarray:
     validate_prediction_inputs(state, 0.0, context)
     validate_finite_scalar("target_position_rad", target_position_rad)
     if abs(state.position_rad) > POSITION_LIMIT_RAD or abs(target_position_rad) > POSITION_LIMIT_RAD:
@@ -56,6 +57,24 @@ def _score_batch(
             or not np.isfinite(candidates).all()
             or np.any(np.abs(candidates) > context.torque_limit_nm)):
         raise ValueError("candidates must be a nonempty bounded finite matrix")
+    return candidates
+
+
+def _feedback_torque(
+    feedback: Controller, state: DynamicsState, target_position_rad: float, limit: float,
+) -> float:
+    request = feedback(state, target_position_rad).requested_torque_nm
+    validate_finite_scalar("feedback torque", request)
+    return min(limit, max(-limit, float(request)))
+
+
+def _score_batch(
+    predictor: Predictor, context: DynamicsContext, state: DynamicsState,
+    target_position_rad: float, weights: CostWeights, candidates_nm: np.ndarray,
+    *, feedback: Controller | None = None,
+) -> tuple[PlanResult, list[tuple[int, float]]]:
+    """Return the public result and feasible candidate indices and costs."""
+    candidates = _validated_candidates(context, state, target_position_rad, weights, candidates_nm)
 
     best_actions = None
     best_cost = None
@@ -64,7 +83,12 @@ def _score_batch(
     for index, candidate in enumerate(candidates):
         current = state
         cost = 0.0
+        uses_feedback = feedback is not None and index == len(candidates) - 1
+        feedback_actions = []
         for torque in candidate:
+            if uses_feedback:
+                torque = _feedback_torque(feedback, current, target_position_rad, float(context.torque_limit_nm))
+                feedback_actions.append(torque)
             calls += 1
             try:
                 current = predictor.predict(current, float(torque), context)
@@ -85,6 +109,8 @@ def _score_batch(
         else:
             try:
                 cost += float(weights.terminal_position) * error ** 2
+                if weights.terminal_velocity:
+                    cost += float(weights.terminal_velocity) * float(current.velocity_rad_s) ** 2
                 if not math.isfinite(cost):
                     continue
             except OverflowError:
@@ -93,20 +119,115 @@ def _score_batch(
             ranked_candidates.append((index, cost))
             if best_cost is None or cost < best_cost:
                 best_cost = cost
-                best_actions = tuple(float(torque) for torque in candidate)
+                best_actions = (tuple(feedback_actions) if uses_feedback
+                                else tuple(float(torque) for torque in candidate))
     return PlanResult(best_actions, best_cost, len(candidates), feasible, calls), ranked_candidates
+
+
+def _retry_scalar(
+    predictor: Predictor, context: DynamicsContext, states: np.ndarray, actions: np.ndarray,
+) -> np.ndarray:
+    predictions = np.full_like(states, np.nan)
+    for index, (row, torque) in enumerate(zip(states, actions, strict=True)):
+        try:
+            answer = predictor.predict(DynamicsState(*map(float, row)), float(torque), context)
+            validate_state(answer)
+        except ValueError:
+            continue
+        predictions[index] = (answer.position_rad, answer.velocity_rad_s)
+    return predictions
+
+
+def _score_batched(
+    predictor: Predictor, predict_batch: Callable[[np.ndarray, np.ndarray, DynamicsContext], np.ndarray],
+    context: DynamicsContext, state: DynamicsState, target_position_rad: float,
+    weights: CostWeights, candidates_nm: np.ndarray, feedback: Controller | None,
+    *, references: np.ndarray | None = None,
+    adjust_actions: Callable[[np.ndarray, np.ndarray, np.ndarray, int], np.ndarray] | None = None,
+    minimum_relative_improvement: float | None = None,
+) -> PlanResult:
+    candidates = _validated_candidates(context, state, target_position_rad, weights, candidates_nm)
+    count, horizon = candidates.shape
+    active = np.arange(count)
+    states = np.tile((float(state.position_rad), float(state.velocity_rad_s)), (count, 1))
+    costs = np.zeros(count)
+    calls = 0
+    for tick in range(horizon):
+        if feedback is not None and active[-1] == count - 1:
+            feedback_state = DynamicsState(*map(float, states[-1]))
+            candidates[-1, tick] = _feedback_torque(
+                feedback, feedback_state, target_position_rad, float(context.torque_limit_nm),
+            )
+        actions = candidates[active, tick]
+        if adjust_actions is not None:
+            actions = adjust_actions(states, actions, active, tick)
+            candidates[active, tick] = actions
+        calls += active.size
+        try:
+            predictions = predict_batch(states, actions, context)
+        except ValueError:
+            calls += active.size
+            predictions = _retry_scalar(predictor, context, states, actions)
+        if (not isinstance(predictions, np.ndarray) or predictions.shape != states.shape
+                or predictions.dtype.kind not in "iuf"):
+            raise ValueError("batch predictions must be a real numeric [N,2] array")
+        predictions = predictions.astype(float, copy=False)
+        position, velocity = predictions.T
+        desired_position, desired_velocity = (
+            (float(target_position_rad), 0.0) if references is None else references[tick + 1]
+        )
+        with np.errstate(over="ignore", invalid="ignore"):
+            position_error = position - desired_position
+            velocity_error = velocity if references is None else velocity - desired_velocity
+            costs += (float(weights.position) * position_error ** 2
+                      + float(weights.velocity) * velocity_error ** 2
+                      + float(weights.effort) * actions ** 2)
+            if tick == horizon - 1:
+                costs += float(weights.terminal_position) * position_error ** 2
+                if weights.terminal_velocity:
+                    costs += float(weights.terminal_velocity) * velocity_error ** 2
+        feasible = (np.isfinite(predictions).all(axis=1) & (np.abs(position) <= POSITION_LIMIT_RAD)
+                    & np.isfinite(costs))
+        active = active[feasible]
+        if not active.size:
+            return PlanResult(None, None, count, 0, int(calls))
+        states = predictions[feasible]
+        costs = costs[feasible]
+    best = int(np.argmin(costs))
+    if minimum_relative_improvement is not None:
+        if active[0] != 0:
+            return PlanResult(None, None, count, active.size, int(calls))
+        if costs[best] > costs[0] * (1 - minimum_relative_improvement):
+            best = 0
+    return PlanResult(tuple(map(float, candidates[active[best]])), float(costs[best]),
+                      count, active.size, int(calls))
 
 
 def plan(
     predictor: Predictor, context: DynamicsContext, state: DynamicsState,
     target_position_rad: float, weights: CostWeights, *, horizon: int,
-    candidate_count: int, rng: np.random.Generator,
+    candidate_count: int, rng: np.random.Generator, feedback: Controller | None = None,
+    batched: bool = False,
 ) -> PlanResult:
-    """Sample exactly candidate_count torque sequences using the supplied RNG."""
+    """Sample candidate_count plans, optionally using feedback and batched prediction.
+
+    Predictor work counts submitted state-action rows, including scalar
+    retries of failed batches.
+    """
     for name, value in (("horizon", horizon), ("candidate_count", candidate_count)):
         if isinstance(value, bool) or not isinstance(value, Integral) or value <= 0:
             raise ValueError(f"{name} must be a positive integer")
     validate_prediction_inputs(state, 0.0, context)
     candidates = rng.uniform(-context.torque_limit_nm, context.torque_limit_nm,
                              size=(candidate_count, horizon))
-    return score_candidates(predictor, context, state, target_position_rad, weights, candidates)
+    if batched:
+        predict_batch = getattr(predictor, "predict_batch", None)
+        if not callable(predict_batch):
+            raise ValueError("batched planning requires a batch-capable predictor")
+        return _score_batched(
+            predictor, predict_batch, context, state, target_position_rad, weights, candidates, feedback,
+        )
+    result, _ = _score_batch(
+        predictor, context, state, target_position_rad, weights, candidates, feedback=feedback,
+    )
+    return result

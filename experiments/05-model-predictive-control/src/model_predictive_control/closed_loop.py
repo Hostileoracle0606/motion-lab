@@ -1,11 +1,11 @@
 """Controller-independent receding-horizon truth execution."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import time
 
 from feedback_control.controllers import pd_control
 from forward_dynamics.types import validate_finite_scalar
 from model_predictive_control.contracts import (
-    ControlDecision, EpisodeRecord, StepRecord, TORQUE_LIMIT_NM, POSITION_LIMIT_RAD,
+    CONTROL_INTERVAL_S, ControlDecision, EpisodeRecord, StepRecord, TORQUE_LIMIT_NM, POSITION_LIMIT_RAD,
 )
 
 
@@ -14,11 +14,44 @@ class PDController:
     kp: float
     kd: float
 
-    def __call__(self, state, target_position_rad):
+    def __call__(self, state, target_position_rad, *, target_velocity_rad_s=0.0):
         result = pd_control(target_position=target_position_rad, position=state.position_rad,
                             velocity=state.velocity_rad_s, kp=self.kp, kd=self.kd,
-                            torque_limit=TORQUE_LIMIT_NM)
+                            torque_limit=TORQUE_LIMIT_NM, target_velocity=target_velocity_rad_s)
         return ControlDecision(result.raw_torque)
+
+
+@dataclass
+class IntegralFeedbackController:
+    """Add bounded integral torque to PD for one observed episode."""
+
+    pd: PDController
+    integral_gain: float
+    integral_limit_nm: float
+    _integral_torque_nm: float = field(default=0.0, init=False, repr=False)
+
+    def __post_init__(self):
+        validate_finite_scalar("integral gain", self.integral_gain)
+        validate_finite_scalar("integral torque limit", self.integral_limit_nm)
+        if self.integral_gain < 0 or not 0 <= self.integral_limit_nm <= TORQUE_LIMIT_NM:
+            raise ValueError("integral gain and torque limit must be nonnegative and the limit must fit the actuator")
+
+    @property
+    def integral_torque_nm(self):
+        return self._integral_torque_nm
+
+    def __call__(self, state, target_position_rad, *, target_velocity_rad_s=0.0):
+        base = self.pd(state, target_position_rad, target_velocity_rad_s=target_velocity_rad_s).requested_torque_nm
+        error = float(target_position_rad) - float(state.position_rad)
+        old_torque = self._integral_torque_nm
+        limit = self.integral_limit_nm
+        candidate = max(-limit, min(limit, old_torque + self.integral_gain * CONTROL_INTERVAL_S * error))
+        combined = base + candidate
+        if ((combined > TORQUE_LIMIT_NM and candidate > old_torque)
+                or (combined < -TORQUE_LIMIT_NM and candidate < old_torque)):
+            return ControlDecision(base + old_torque)
+        self._integral_torque_nm = candidate
+        return ControlDecision(combined)
 
 
 def _valid_request(value):
